@@ -7,6 +7,4 @@ matplotlib
 trimesh
 plotly
 reportlab
-pyvista
-stpyvista
 scipy

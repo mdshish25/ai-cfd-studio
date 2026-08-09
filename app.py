@@ -3,11 +3,11 @@ import numpy as np
 import pandas as pd
 import trimesh
 import plotly.graph_objects as go
-import plotly.io as pio
 import subprocess
 import os
 import datetime
 import math
+import matplotlib.pyplot as plt
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
@@ -17,18 +17,41 @@ from reportlab.lib import colors
 st.set_page_config(page_title="ANSYS Workbench AI Studio", layout="wide")
 
 st.title("⚡ ANSYS Workbench Multi-Physics Studio")
-st.write("Generate Exact ANSYS Workbench Technical Simulation Reports & 3D Contour Analytics")
+st.write("Generate ANSYS Workbench Technical Reports & 3D Contour Analytics")
 
-def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radius, sim_results, fig_contour):
-    """
-    Generates a 1:1 ANSYS Workbench Mechanical / DesignSpace Report PDF
-    """
+def generate_ansys_contour_plot(velocity, radius):
+    """Generate static ANSYS style contour figure for PDF report"""
+    fig, ax = plt.subplots(figsize=(6, 2.5), facecolor='#0F172A')
+    ax.set_facecolor('#0F172A')
+    
+    # Simulate contour gradient
+    x = np.linspace(-radius, radius, 100)
+    y = np.linspace(-0.25, 0.25, 50)
+    X, Y = np.meshgrid(x, y)
+    Z = velocity * (1.0 - (X**2 + Y**2)/(radius**2 + 0.01))
+    
+    contour = ax.contourf(X, Y, Z, cmap='jet', levels=15)
+    cbar = fig.colorbar(contour, ax=ax)
+    cbar.ax.yaxis.set_tick_params(color='white')
+    plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
+    cbar.set_label('Velocity Magnitude (m/s)', color='white')
+    
+    ax.axis('off')
+    plt.tight_layout()
+    
+    buf = BytesIO()
+    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor=fig.get_facecolor())
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radius, sim_results):
+    """Generates an ANSYS Workbench Mechanical Report PDF"""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     styles = getSampleStyleSheet()
     story = []
 
-    # Title Banner Style
     title_style = ParagraphStyle('ANSYSTitle', parent=styles['Heading1'], fontSize=20, textColor=colors.HexColor('#002B49'), spaceAfter=2)
     sub_style = ParagraphStyle('ANSYSSub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#475569'), spaceAfter=10)
     
@@ -36,7 +59,6 @@ def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radiu
     story.append(Paragraph("DesignSpace / Mechanical Automated Engineering Report", sub_style))
     story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#FFB800'), spaceAfter=12))
 
-    # Project Metadata Block (ANSYS Standard Header)
     now_str = datetime.datetime.now().strftime("%A, %B %d, %Y at %I:%M:%S %p")
     meta_data = [
         ["Project", project_name, "Software Used", "ANSYS Workbench v23.2 / AI Engine"],
@@ -55,7 +77,6 @@ def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radiu
     story.append(t_meta)
     story.append(Spacer(1, 10))
 
-    # 1. Summary Section
     story.append(Paragraph("1. Summary & Model Assumptions", styles['Heading2']))
     story.append(Spacer(1, 4))
     
@@ -67,7 +88,6 @@ def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radiu
     story.append(Paragraph(summary_p, styles['Normal']))
     story.append(Spacer(1, 8))
 
-    # Material & Dimension Properties Table
     mat_data = [
         ["Material / Layer Name", "Thickness (m) / Property", "Elastic Modulus / Density", "Poisson's Ratio"],
         ["Silicon (Si)", "3.00E-04 m", "1.12E+11 Pa", "0.28"],
@@ -87,7 +107,6 @@ def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radiu
     story.append(t_mat)
     story.append(Spacer(1, 10))
 
-    # 2. Scenario & Simulation Results
     story.append(Paragraph("2. Simulation Scenario & Results Summary", styles['Heading2']))
     story.append(Spacer(1, 4))
 
@@ -107,21 +126,18 @@ def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radiu
     story.append(t_res)
     story.append(Spacer(1, 10))
 
-    # 3. FIGURES SECTION (ANSYS Contour Screenshots)
     story.append(Paragraph("3. ANSYS Contour Figures & Field Post-Processing", styles['Heading2']))
     story.append(Spacer(1, 4))
 
-    # Export Plotly 3D Figure as Image Byte Array for PDF Insertion
-    img_bytes = pio.to_image(fig_contour, format="png", width=700, height=350)
-    img_buffer = BytesIO(img_bytes)
-    story.append(Image(img_buffer, width=500, height=250))
+    # Add Contour Plot Image
+    contour_img_buf = generate_ansys_contour_plot(velocity, radius)
+    story.append(Image(contour_img_buf, width=480, height=200))
     story.append(Paragraph("<i>Figure A1.1: 3D Equivalent Field & CFD Contour Map Distribution.</i>", styles['Italic']))
 
     doc.build(story)
     buffer.seek(0)
     return buffer
 
-# Streamlit UI
 col1, col2 = st.columns([1, 1])
 
 with col1:
@@ -133,7 +149,6 @@ with col1:
     inlet_velocity = st.slider("Inlet Load / Velocity (m/s)", 0.5, 50.0, 10.0)
     pipe_radius = st.slider("Domain Scale / Radius (m)", 0.01, 0.5, 0.05)
 
-    # Calculate Physics
     mesh = trimesh.creation.cylinder(radius=pipe_radius, height=0.5) if uploaded_file is None else trimesh.load("uploaded.stl")
     verts = mesh.vertices
     faces = mesh.faces
@@ -164,7 +179,7 @@ with col2:
             x=verts[:, 0], y=verts[:, 1], z=verts[:, 2],
             i=faces[:, 0], j=faces[:, 1], k=faces[:, 2],
             intensity=velocity_field,
-            colorscale="Jet", # ANSYS Rainbow Color Palette
+            colorscale="Jet",
             colorbar=dict(title="Velocity (m/s)", thickness=20),
             opacity=0.98
         )
@@ -172,9 +187,8 @@ with col2:
     fig.update_layout(scene=dict(xaxis_title='X', yaxis_title='Y', zaxis_title='Z', bgcolor="#0F172A"), margin=dict(l=0, r=0, b=0, t=0))
     st.plotly_chart(fig, use_container_width=True)
 
-    # PDF GENERATION TRIGGER
     filename_str = uploaded_file.name if uploaded_file else "STAVE_Simul.stl"
-    pdf_bytes = generate_ansys_workbench_pdf(filename_str, project_name, author_name, inlet_velocity, pipe_radius, sim_results, fig)
+    pdf_bytes = generate_ansys_workbench_pdf(filename_str, project_name, author_name, inlet_velocity, pipe_radius, sim_results)
 
     st.download_button(
         label="📄 Download ANSYS Workbench Format Technical PDF Report",

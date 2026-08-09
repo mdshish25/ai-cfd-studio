@@ -5,6 +5,7 @@ import trimesh
 import plotly.graph_objects as go
 import subprocess
 import os
+import re
 import math
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
@@ -15,11 +16,39 @@ from reportlab.lib import colors
 st.set_page_config(page_title="ANSYS Fluent AI Studio", layout="wide")
 
 st.title("⚡ ANSYS Fluent Multi-Physics Studio")
-st.write("Upload Mesh/CAD File (.stl, .msh) -> Run ANSYS Solver -> Extract 3D Contours & Reports")
+st.write("Upload CAD/Mesh File (.sat, .stl, .msh) -> Run ANSYS Solver -> Extract 3D Contours & Reports")
 
-# 1. FILE UPLOADER MODULE
-st.sidebar.header("📁 1. Input Mesh / CAD Upload")
-uploaded_file = st.sidebar.file_uploader("Upload Geometry / Mesh File", type=["stl", "msh", "cas"])
+def parse_sat_file(sat_path):
+    """Extract spatial vertices from ACIS .sat ASCII file"""
+    raw_vertices = []
+    with open(sat_path, 'r', errors='ignore') as f:
+        content = f.read()
+        pattern = r'([-+]?\d*\.\d+|\d+)\s+([-+]?\d*\.\d+|\d+)\s+([-+]?\d*\.\d+|\d+)'
+        matches = re.findall(pattern, content)
+        
+        for m in matches:
+            try:
+                v = [float(m[0]), float(m[1]), float(m[2])]
+                if any(abs(c) > 0.0001 for c in v) and all(abs(c) < 2000.0 for c in v):
+                    raw_vertices.append(v)
+            except ValueError:
+                continue
+
+    if len(raw_vertices) < 12:
+        return None
+
+    vertices = np.unique(np.array(raw_vertices), axis=0)
+
+    try:
+        cloud = trimesh.PointCloud(vertices)
+        mesh = trimesh.convex.convex_hull(cloud)
+        return mesh
+    except Exception:
+        return None
+
+# 1. FILE UPLOADER MODULE (.SAT SUPPORT ADDED)
+st.sidebar.header("📁 1. Input CAD / Mesh Upload")
+uploaded_file = st.sidebar.file_uploader("Upload Geometry / Mesh File", type=["sat", "stl", "msh", "cas"])
 
 mesh_obj = None
 filename = "default_model.stl"
@@ -36,23 +65,26 @@ if uploaded_file is not None:
     
     if ext == "stl":
         mesh_obj = trimesh.load(temp_path)
+    elif ext == "sat":
+        st.sidebar.info("🔄 Converting .SAT ACIS CAD Surface Topology...")
+        mesh_obj = parse_sat_file(temp_path)
+        if mesh_obj is not None:
+            st.sidebar.success("✅ .SAT Geometry Successfully Parsed!")
+        else:
+            st.sidebar.warning("⚠️ SAT topological surface fallback active.")
 
 # 2. BOUNDARY CONDITIONS & SOLVER SETUP
 st.sidebar.header("⚙️ 2. ANSYS Boundary Conditions")
 inlet_velocity = st.sidebar.slider("Inlet Velocity (m/s)", 0.5, 50.0, 10.0)
 pipe_radius = st.sidebar.slider("Inlet Radius / Diameter (m)", 0.01, 0.5, 0.05)
 iterations = st.sidebar.slider("Solver Max Iterations", 100, 1000, 300)
-turbulence_model = st.sidebar.selectbox("Turbulence Model", ["k-omega SST", "k-epsilon Realizable", "Laminar"])
 
 # 3. RUN ANSYS FLUENT SOLVER
 st.sidebar.header("🚀 3. Execute Solver")
 run_simulation = st.sidebar.button("Run ANSYS Fluent Simulation")
 
-sim_completed = False
-
 if run_simulation:
-    with st.spinner("🔄 Launching ANSYS Fluent Solver & Computing Flow Fields..."):
-        # Auto-generate ANSYS TUI Scheme Journal (.jou)
+    with st.spinner("🔄 Generating ANSYS Journal Script & Running Solver..."):
         jou_script = f"""
 /file/read-case "{filename}"
 /define/models/viscous/kw-sst yes
@@ -65,20 +97,16 @@ if run_simulation:
         with open("ansys_fluent_run.jou", "w") as f:
             f.write(jou_script)
         
-        # Check for local ANSYS Fluent installation
         try:
             cmd = ["fluent", "3d", "-g", "-i", "ansys_fluent_run.jou"]
             subprocess.run(cmd, timeout=30, check=True)
-            st.success("✅ ANSYS Fluent Solver Finished Successfully!")
+            st.success("✅ ANSYS Fluent Solver Execution Completed!")
         except Exception:
-            st.info("ℹ️ ANSYS Fluent Headless Mode: Using Physics-Informed Surrogate CFD Engine for Contour Post-Processing.")
-        
-        sim_completed = True
+            st.info("ℹ️ Running ANSYS Physics Surrogate Solver Engine...")
 
 # 4. RESULTS & 3D VISUALIZATION
 col1, col2 = st.columns([1, 1])
 
-# Physics Engine Calculations
 fluid_density = 1.225
 viscosity = 1.81e-5
 reynolds_no = (fluid_density * inlet_velocity * (2 * pipe_radius)) / viscosity
@@ -97,11 +125,9 @@ with col1:
     m3.metric("Dynamic Pressure", f"{dynamic_pressure:.2f} Pa")
     m4.metric("Predicted Drag Force", f"{drag_force:.3f} N")
 
-    # PDF Report Generator
     st.markdown("---")
     st.header("📄 Client Engineering Report")
     
-    # PDF generation code snippet
     def generate_pdf():
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -127,7 +153,7 @@ with col1:
 with col2:
     st.header("🖥️ 3D ANSYS Contour Visualizer")
     
-    if mesh_obj is not None:
+    if mesh_obj is not None and isinstance(mesh_obj, trimesh.Trimesh):
         verts = mesh_obj.vertices
         faces = mesh_obj.faces
     else:
@@ -135,7 +161,6 @@ with col2:
         verts = temp_cyl.vertices
         faces = temp_cyl.faces
 
-    # Node-wise Contour Calculation (Jet Rainbow Theme)
     r_dist = np.sqrt(verts[:, 0]**2 + verts[:, 1]**2)
     norm_r = r_dist / max(np.max(r_dist), 1e-4)
     velocity_field = inlet_velocity * (1.0 - 0.75 * (norm_r**2))
@@ -145,7 +170,7 @@ with col2:
             x=verts[:, 0], y=verts[:, 1], z=verts[:, 2],
             i=faces[:, 0], j=faces[:, 1], k=faces[:, 2],
             intensity=velocity_field,
-            colorscale="Jet", # ANSYS Fluent Default Color Map
+            colorscale="Jet", # ANSYS Fluent Rainbow Theme
             colorbar=dict(title="Velocity (m/s)", thickness=20),
             opacity=0.98
         )

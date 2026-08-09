@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import trimesh
 import plotly.graph_objects as go
-import re
 import math
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
@@ -11,54 +10,28 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-st.set_page_config(page_title="AI Multi-Physics Studio", layout="wide")
+st.set_page_config(page_title="AI CFD & Multi-Physics Studio", layout="wide")
 
-st.title("⚡ Multi-Physics AI Simulation Studio")
-st.write("Ansys Fluent-Style CFD Post-Processor & Automated Client Report Generator")
+st.title("⚡ AI Multi-Physics Simulation & CFD Studio")
+st.write("Professional .STL CAD Mesh Solver, 3D Post-Processor & Client Report Generator")
 
-def parse_cad_file(file_path, file_ext):
-    """High-Precision Engine for STL/SAT/DWG Files"""
-    if file_ext == "stl":
+def load_stl_mesh(file_path):
+    """Direct high-fidelity 3D STL mesh loader"""
+    try:
         mesh = trimesh.load(file_path)
-        return mesh, "Exact STL Mesh Loaded"
-    
-    elif file_ext in ["sat", "dwg"]:
-        raw_vertices = []
-        with open(file_path, 'r', errors='ignore') as f:
-            content = f.read()
-            pattern = r'([-+]?\d*\.\d+|\d+)\s+([-+]?\d*\.\d+|\d+)\s+([-+]?\d*\.\d+|\d+)'
-            matches = re.findall(pattern, content)
-            
-            for m in matches:
-                try:
-                    v = [float(m[0]), float(m[1]), float(m[2])]
-                    if any(abs(c) > 0.0001 for c in v) and all(abs(c) < 2000.0 for c in v):
-                        raw_vertices.append(v)
-                except ValueError:
-                    continue
-
-        if len(raw_vertices) < 12:
-            return None, "Unable to extract topological boundary from file."
-
-        vertices = np.unique(np.array(raw_vertices), axis=0)
-
-        try:
-            cloud = trimesh.PointCloud(vertices)
-            mesh = trimesh.convex.convex_hull(cloud)
-            return mesh, f"Exact CAD B-Rep Parsed ({len(vertices)} Vertices)"
-        except Exception:
-            return cloud, f"Point Mesh Extracted ({len(vertices)} Boundary Nodes)"
-            
-    return None, "Unsupported File Format"
+        return mesh, "100% Exact 3D STL Mesh Loaded"
+    except Exception as e:
+        return None, f"Error loading mesh: {str(e)}"
 
 def run_physics_simulation(mesh, velocity, radius, domain, fluid_density=1.225, viscosity=1.81e-5):
-    """Computes CFD scalar field arrays for all 3D surface vertices"""
+    """Computes CFD scalar field arrays (Velocity & Pressure) across all exact mesh nodes"""
     if mesh is not None and isinstance(mesh, trimesh.Trimesh):
         bounds = mesh.extents
         volume = abs(mesh.volume)
         area = mesh.area
         verts = mesh.vertices
     else:
+        # Default fallback cylinder for initial view
         temp_cyl = trimesh.creation.cylinder(radius=radius, height=0.5)
         bounds = temp_cyl.extents
         volume = abs(temp_cyl.volume)
@@ -82,7 +55,7 @@ def run_physics_simulation(mesh, velocity, radius, domain, fluid_density=1.225, 
     h_coeff = (nusselt_no * k_thermal) / (2 * radius)
     estimated_heat_transfer = h_coeff * area * 25.0
 
-    # COMPUTE 3D FIELD CONTOURS (Parabolic Flow Field & Pressure Gradients)
+    # NODE-WISE SCALAR CONTOUR COMPUTATION
     z_min, z_max = np.min(verts[:, 2]), np.max(verts[:, 2])
     z_len = max(z_max - z_min, 1e-4)
     norm_z = (verts[:, 2] - z_min) / z_len
@@ -193,18 +166,16 @@ def generate_client_pdf_report(filename, domain, sim_results, velocity, radius):
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    st.header("📦 1. CAD Upload & Configuration")
-    uploaded_file = st.file_uploader("Upload 3D CAD File (.stl, .sat, .dwg)", type=["stl", "sat", "dwg"])
+    st.header("📦 1. CAD Upload (.STL Recommended)")
+    uploaded_file = st.file_uploader("Upload 3D CAD File (.stl format)", type=["stl"])
     
     parsed_geo = None
     if uploaded_file is not None:
-        ext = uploaded_file.name.split(".")[-1].lower()
-        temp_path = f"temp_upload.{ext}"
-        
+        temp_path = "temp_upload.stl"
         with open(temp_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         
-        parsed_geo, status_msg = parse_cad_file(temp_path, ext)
+        parsed_geo, status_msg = load_stl_mesh(temp_path)
         st.success(f"File: `{uploaded_file.name}` | {status_msg}")
 
     st.header("⚙️ 2. Physics Simulation Parameters")
@@ -267,7 +238,7 @@ with col2:
         scene=dict(
             xaxis_title='X (m)', yaxis_title='Y (m)', zaxis_title='Z (m)',
             aspectmode='data',
-            bgcolor="#0F172A"  # Dark CAD Studio background
+            bgcolor="#0F172A"  # Dark CAD Studio theme
         ),
         margin=dict(l=0, r=0, b=0, t=0)
     )

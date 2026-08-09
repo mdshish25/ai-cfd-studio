@@ -1,7 +1,10 @@
+ezdxf
+trimesh
+pyvista
+pythreejs
 streamlit
 pandas
 numpy
 scikit-learn
 torch
 matplotlib
-trimesh

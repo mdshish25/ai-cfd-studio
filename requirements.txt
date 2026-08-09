@@ -7,3 +7,4 @@ matplotlib
 trimesh
 ezdxf
 plotly
+cadquery

@@ -4,34 +4,44 @@ import pandas as pd
 import trimesh
 import plotly.graph_objects as go
 import re
+import io
+import uuid
+import os
 
 st.set_page_config(page_title="AI 3D CFD Studio", layout="wide")
 
 st.title("⚡ AI-Powered 3D CAD CFD Analyzer")
 
-def extract_sat_mesh(sat_path):
-    """Accurate ACIS .sat point mesh parser with outlier coordinate filtering"""
+
+def extract_sat_mesh(sat_bytes):
+    """
+    Approximate ACIS .sat point extraction + convex hull reconstruction.
+
+    NOTE: This is NOT an exact B-rep reconstruction. ACIS .sat is a
+    parametric NURBS-based format; a text-regex scan cannot recover
+    exact surfaces. This function extracts numeric triples that look
+    like coordinates, filters outliers, and wraps them in a convex
+    hull for a rough visual preview only. Any concave features
+    (bores, fillets, internal channels) will NOT appear in the mesh.
+    """
     raw_coords = []
-    with open(sat_path, 'r', errors='ignore') as f:
-        for line in f:
-            # ACIS points usually appear in blocks with floats
-            matches = re.findall(r'([-+]?\d*\.\d+|\d+)', line)
-            if len(matches) >= 3:
-                for i in range(0, len(matches)-2, 3):
-                    try:
-                        x, y, z = float(matches[i]), float(matches[i+1]), float(matches[i+2])
-                        # Filter out ACIS header IDs / entity index numbers (> 500m scale outliers)
-                        if abs(x) < 500 and abs(y) < 500 and abs(z) < 500:
-                            raw_coords.append([x, y, z])
-                    except ValueError:
-                        continue
+    text = sat_bytes.decode("utf-8", errors="ignore")
+    for line in text.splitlines():
+        matches = re.findall(r'([-+]?\d*\.\d+|\d+)', line)
+        if len(matches) >= 3:
+            for i in range(0, len(matches) - 2, 3):
+                try:
+                    x, y, z = float(matches[i]), float(matches[i + 1]), float(matches[i + 2])
+                    if abs(x) < 500 and abs(y) < 500 and abs(z) < 500:
+                        raw_coords.append([x, y, z])
+                except ValueError:
+                    continue
 
     if len(raw_coords) < 10:
         return None, None
 
     pts = np.array(raw_coords)
-    
-    # Statistical Outlier Removal (Remove header metadata noise)
+
     mean = np.mean(pts, axis=0)
     std = np.std(pts, axis=0)
     valid_mask = np.all(np.abs(pts - mean) < 2 * std, axis=1)
@@ -40,7 +50,6 @@ def extract_sat_mesh(sat_path):
     if len(clean_pts) < 10:
         return None, None
 
-    # Auto-generate 3D Alpha-Convex Mesh Surface from extracted CAD points
     try:
         cloud = trimesh.PointCloud(clean_pts)
         mesh = cloud.convex_hull
@@ -48,43 +57,68 @@ def extract_sat_mesh(sat_path):
     except Exception:
         return clean_pts, None
 
+
+# ---- session-scoped temp workspace ----
+# Each browser session gets its own subfolder under /tmp so concurrent
+# uploads (different tabs, different users on Streamlit Cloud) never
+# read or overwrite each other's files.
+if "session_id" not in st.session_state:
+    st.session_state.session_id = uuid.uuid4().hex
+
+SESSION_TMP_DIR = os.path.join("/tmp", "cfd_studio_uploads", st.session_state.session_id)
+os.makedirs(SESSION_TMP_DIR, exist_ok=True)
+
+
 col1, col2 = st.columns([1, 1])
 
 with col1:
     st.header("📦 1. CAD Geometry Upload")
     uploaded_file = st.file_uploader("Upload 3D CAD File (.stl, .sat, .dwg)", type=["stl", "sat", "dwg"])
-    
+
     mesh_obj = None
     sat_pts = None
-    
+    is_approximate = False
+
     if uploaded_file is not None:
         ext = uploaded_file.name.split(".")[-1].lower()
         st.success(f"Uploaded `{uploaded_file.name}` successfully!")
-        
-        temp_path = f"temp_upload.{ext}"
-        with open(temp_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        
+
+        file_bytes = uploaded_file.getvalue()
+
         if ext == "stl":
-            mesh_obj = trimesh.load(temp_path)
+            # Load straight from the in-memory buffer — no shared disk
+            # path, no risk of reading a different session's file.
+            mesh_obj = trimesh.load(
+                io.BytesIO(file_bytes),
+                file_type="stl"
+            )
+
         elif ext in ["sat", "dwg"]:
-            st.info("🔄 Reconstructing exact 3D Mesh Surface from .SAT geometry...")
-            sat_pts, mesh_obj = extract_sat_mesh(temp_path)
+            st.info("🔄 Extracting approximate point cloud from .SAT geometry...")
+            sat_pts, mesh_obj = extract_sat_mesh(file_bytes)
+            is_approximate = True
 
         if mesh_obj is not None:
             st.subheader("📊 Extracted 3D Geometry Metrics")
+            if is_approximate:
+                st.warning(
+                    "⚠️ This is a **convex hull approximation**, not an exact "
+                    "reconstruction. Concave features (bores, fillets, internal "
+                    "channels) are not represented. Metrics below describe the "
+                    "convex hull, not the original solid."
+                )
             bounds = mesh_obj.extents
             st.write(f"**Bounding Box (X, Y, Z):** {bounds[0]:.3f}m × {bounds[1]:.3f}m × {bounds[2]:.3f}m")
-            st.write(f"**Total Volume:** {mesh_obj.volume:.6f} m³")
-            st.write(f"**Surface Area:** {mesh_obj.area:.6f} m²")
+            st.write(f"**{'Approx. ' if is_approximate else ''}Volume:** {mesh_obj.volume:.6f} m³")
+            st.write(f"**{'Approx. ' if is_approximate else ''}Surface Area:** {mesh_obj.area:.6f} m²")
 
     st.header("⚙️ 2. Boundary Conditions")
     inlet_velocity = st.slider("Inlet Velocity (m/s)", 0.5, 20.0, 5.0)
     pipe_radius = st.slider("Pipe/Inlet Radius (m)", 0.01, 0.2, 0.05)
 
 with col2:
-    st.header("📊 3. Exact 3D Plan Visualizer")
-    
+    st.header("📊 3. 3D Plan Visualizer")
+
     if mesh_obj is not None:
         vertices = mesh_obj.vertices
         faces = mesh_obj.faces

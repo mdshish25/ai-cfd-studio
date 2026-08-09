@@ -7,4 +7,4 @@ matplotlib
 trimesh
 plotly
 reportlab
-kaleido
+scipy

@@ -7,4 +7,4 @@ matplotlib
 trimesh
 plotly
 reportlab
-scipy
+ansys-fluent-core

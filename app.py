@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import trimesh
 import plotly.graph_objects as go
+import pyvista as pv
+from stpyvista import stpyvista
 import re
 import math
 from io import BytesIO
@@ -11,10 +13,13 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
+# Initialize PyVista Headless Virtual Framebuffer for Cloud Server
+pv.start_xvfb()
+
 st.set_page_config(page_title="AI Multi-Physics Studio", layout="wide")
 
 st.title("⚡ Multi-Physics AI Simulation Studio")
-st.write("Full-Featured 3D CFD Contour Solver & Executive Client Report Generator")
+st.write("Professional PyVista VTK 3D CFD Post-Processor & Executive Client Report Engine")
 
 def parse_cad_file(file_path, file_ext):
     """High-Precision Engine for STL/SAT/DWG Files"""
@@ -52,14 +57,13 @@ def parse_cad_file(file_path, file_ext):
     return None, "Unsupported File Format"
 
 def run_physics_simulation(mesh, velocity, radius, domain, fluid_density=1.225, viscosity=1.81e-5):
-    """Calculates CFD scalar field arrays (Velocity & Pressure) for all 3D surface vertices"""
+    """Computes CFD scalar field arrays for all 3D surface vertices"""
     if mesh is not None and isinstance(mesh, trimesh.Trimesh):
         bounds = mesh.extents
         volume = abs(mesh.volume)
         area = mesh.area
         verts = mesh.vertices
     else:
-        # Default Cylinder Geometry Generation
         temp_cyl = trimesh.creation.cylinder(radius=radius, height=0.5)
         bounds = temp_cyl.extents
         volume = abs(temp_cyl.volume)
@@ -83,7 +87,7 @@ def run_physics_simulation(mesh, velocity, radius, domain, fluid_density=1.225, 
     h_coeff = (nusselt_no * k_thermal) / (2 * radius)
     estimated_heat_transfer = h_coeff * area * 25.0
 
-    # COMPUTE 3D FIELD CONTOURS ACROSS MESH NODES (Like Ansys Fluent Post-Processor)
+    # 3D Node Scalar Field Computations
     z_min, z_max = np.min(verts[:, 2]), np.max(verts[:, 2])
     z_len = max(z_max - z_min, 1e-4)
     norm_z = (verts[:, 2] - z_min) / z_len
@@ -91,10 +95,7 @@ def run_physics_simulation(mesh, velocity, radius, domain, fluid_density=1.225, 
     r_dist = np.sqrt(verts[:, 0]**2 + verts[:, 1]**2)
     norm_r = r_dist / max(np.max(r_dist), 1e-4)
 
-    # Parabolic / Boundary Layer Velocity Profile Scalar Field
     velocity_field = velocity * (1.0 - 0.8 * (norm_r**2)) * (1.0 + 0.15 * np.sin(norm_z * math.pi))
-    
-    # Bernoulli Pressure Field Distribution
     p_inlet = dynamic_pressure * 2.0
     pressure_field = p_inlet - (0.5 * fluid_density * (velocity_field**2)) - (friction_factor * (norm_z * z_len / (2*radius)) * dynamic_pressure)
 
@@ -219,12 +220,12 @@ with col1:
     inlet_velocity = st.slider("Inlet Velocity (m/s)", 0.5, 50.0, 10.0)
     pipe_radius = st.slider("Pipe/Inlet Radius (m)", 0.01, 0.5, 0.05)
 
-    # CONTOUR DISPLAY CONTROL
-    st.header("🎨 CFD Result Display Options")
+    st.header("🎨 PyVista VTK View Controls")
     field_option = st.radio(
-        "Select CFD Field Contour Overlay:",
-        ["Velocity Magnitude Contour (m/s)", "Pressure Drop Contour (Pa)"]
+        "Select CFD Contour Field:",
+        ["Velocity Contour (m/s)", "Pressure Drop Contour (Pa)"]
     )
+    slice_view = st.checkbox("Enable 3D Slice/Cut-Plane Cut", value=False)
 
     sim_outputs = run_physics_simulation(parsed_geo, inlet_velocity, pipe_radius, selected_domain)
 
@@ -241,42 +242,40 @@ with col1:
     )
 
 with col2:
-    st.header("🖥️ 3. Ansys/COMSOL-Style 3D CFD Post-Processor")
+    st.header("🖥️ PyVista VTK Professional CFD Post-Processor")
     
-    mesh_to_render = sim_outputs["mesh"]
-    verts = mesh_to_render.vertices
-    faces = mesh_to_render.faces
-    
-    # Choose Contour Colorscale Array
-    if "Velocity" in field_option:
-        color_intensity = sim_outputs["velocity_field"]
-        colorscale_choice = "Jet"  # Ansys Fluent Default Rainbow/Jet
-        color_title = "Velocity (m/s)"
-    else:
-        color_intensity = sim_outputs["pressure_field"]
-        colorscale_choice = "Plasma"
-        color_title = "Pressure (Pa)"
+    mesh_obj = sim_outputs["mesh"]
+    verts = mesh_obj.vertices
+    faces = mesh_obj.faces
 
-    fig = go.Figure(data=[
-        go.Mesh3d(
-            x=verts[:, 0], y=verts[:, 1], z=verts[:, 2],
-            i=faces[:, 0], j=faces[:, 1], k=faces[:, 2],
-            intensity=color_intensity,
-            colorscale=colorscale_choice,
-            colorbar=dict(title=color_title, thickness=20, len=0.8),
-            opacity=0.95,
-            lighting=dict(ambient=0.4, diffuse=0.8, roughness=0.1)
-        )
-    ])
-    
-    fig.update_layout(
-        scene=dict(
-            xaxis_title='X (m)', yaxis_title='Y (m)', zaxis_title='Z (m)',
-            aspectmode='data'
-        ),
-        margin=dict(l=0, r=0, b=0, t=0)
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    # Build PyVista PolyData Object
+    pv_faces = np.column_stack([np.full((len(faces), 1), 3), faces]).ravel()
+    pv_mesh = pv.PolyData(verts, pv_faces)
+
+    if "Velocity" in field_option:
+        pv_mesh["Velocity (m/s)"] = sim_outputs["velocity_field"]
+        scalar_name = "Velocity (m/s)"
+        cmap_choice = "jet"
+    else:
+        pv_mesh["Pressure (Pa)"] = sim_outputs["pressure_field"]
+        scalar_name = "Pressure (Pa)"
+        cmap_choice = "plasma"
+
+    plotter = pv.Plotter(window_size=[600, 500])
+    plotter.background_color = "#0F172A"  # Dark CAD Studio theme
+
+    if slice_view:
+        # Add ParaView-style interactive 3D slice plane
+        sliced = pv_mesh.slice(normal='z')
+        plotter.add_mesh(sliced, scalars=scalar_name, cmap=cmap_choice, show_edges=True)
+    else:
+        plotter.add_mesh(pv_mesh, scalars=scalar_name, cmap=cmap_choice, smooth_shading=True)
+
+    plotter.add_scalar_bar(title=scalar_name, vertical=True)
+    plotter.view_isometric()
+
+    # Render PyVista VTK Plot into Streamlit
+    stpyvista(plotter)
 
     st.subheader("🤖 AI Real-Time CFD Field Metrics")
     m1, m2, m3 = st.columns(3)

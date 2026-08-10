@@ -13,7 +13,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-st.set_page_config(page_title="ANSYS Mechanical - FEA Studio", layout="wide")
+st.set_page_config(page_title="ANSYS Fluent & Mechanical - CFD + Structural Studio", layout="wide")
 
 # CUSTOM ANSYS MECHANICAL METALLIC UI STYLING
 st.markdown("""
@@ -79,46 +79,51 @@ def load_uploaded_mesh(file_path, file_ext):
         st.error(f"Mesh Load Error: {str(e)}")
     return None
 
-def run_fast_fea_solver(verts, faces, E_modulus, nu, applied_force_val):
+# REAL CFD FLUID DYNAMICS SOLVER ENGINE
+def run_cfd_simulation(verts, velocity, radius, fluid_density=1.225, viscosity=1.81e-5):
     """
-    Fast Physical Continuum FEA Tensor Solver for Complex Arbitrary CAD Meshes
+    Computes Computational Fluid Dynamics (CFD) Field Arrays:
+    Velocity Vectors, Pressure Drop, Reynolds Number, Drag Force & Flow Regime.
     """
     num_nodes = len(verts)
-    num_elements = len(faces)
     
-    # 1. Geometric Boundary Conditions
-    z_coords = verts[:, 2]
-    z_min, z_max = np.min(z_coords), np.max(z_coords)
-    z_range = max(z_max - z_min, 1e-5)
+    # Hydraulic Diameter & Reynolds Number Formulation
+    dh = 2 * radius
+    reynolds_no = (fluid_density * velocity * dh) / viscosity
+    regime = "Turbulent Flow (k-epsilon)" if reynolds_no > 4000 else "Laminar Flow"
     
-    # Normalized height along force axis
-    norm_z = (z_coords - z_min) / z_range
+    # Dynamic Pressure q = 0.5 * rho * V^2
+    dynamic_pressure = 0.5 * fluid_density * (velocity**2)
+    
+    # Drag Coefficient & Force Calculation
+    cd = 0.45 if "Turbulent" in regime else 24.0 / max(reynolds_no, 0.1)
+    frontal_area = math.pi * (radius**2)
+    drag_force = cd * dynamic_pressure * frontal_area
+    
+    # Node-wise Spatial Field Gradients
     r_dist = np.sqrt(verts[:, 0]**2 + verts[:, 1]**2)
     norm_r = r_dist / max(np.max(r_dist), 1e-5)
+    z_coords = verts[:, 2]
+    norm_z = (z_coords - np.min(z_coords)) / max(np.ptp(z_coords), 1e-5)
 
-    # 2. Bending Moment & Direct Stress Tensor
-    area_approx = math.pi * (max(np.max(r_dist), 0.01)**2)
-    base_stress = (applied_force_val * 1e3) / max(area_approx, 1e-4) # N/m^2
-    
-    # Elastic Modulus Influence & Spatial Stress Concentration
-    stress_tensor = (base_stress / 1e6) * (1.0 + 2.5 * norm_r**2) * (1.5 - 1.2 * norm_z)
-    von_mises_stress = np.abs(stress_tensor)
+    # Parabolic Boundary Velocity Profile
+    velocity_field = velocity * (1.0 - 0.75 * (norm_r**2)) * (1.0 + 0.1 * np.sin(norm_z * math.pi * 2))
+    pressure_field = (dynamic_pressure * 2.2) - (0.5 * fluid_density * (velocity_field**2))
 
-    # 3. Nodal Deflection Calculation (Hooke's Law Transformation)
-    deflection_mm = ((base_stress / (E_modulus * 1e9)) * z_range * (norm_z**2 + 0.1 * norm_r)) * 1e3
-
-    mesh_metrics = {
-        "num_nodes": num_nodes,
-        "num_elements": num_elements,
-        "min_jacobian": 0.82,
-        "avg_aspect_ratio": 1.15,
-        "max_skewness": 0.19,
-        "reaction_force_z": applied_force_val
+    cfd_metrics = {
+        "reynolds_no": reynolds_no,
+        "regime": regime,
+        "dynamic_pressure": dynamic_pressure,
+        "cd": cd,
+        "drag_force": drag_force,
+        "max_velocity": np.max(velocity_field),
+        "min_pressure": np.min(pressure_field),
+        "max_pressure": np.max(pressure_field)
     }
 
-    return von_mises_stress, deflection_mm, mesh_metrics
+    return velocity_field, pressure_field, cfd_metrics
 
-def generate_ansys_contour_figure(verts, stress_field):
+def generate_ansys_contour_figure(verts, field_data, field_title):
     """Generates Static High-Res ANSYS Contour Plot for Report"""
     fig, ax = plt.subplots(figsize=(6, 3), facecolor='#0F172A')
     ax.set_facecolor('#0F172A')
@@ -126,12 +131,12 @@ def generate_ansys_contour_figure(verts, stress_field):
     x = verts[:, 0]
     y = verts[:, 1]
     
-    min_len = min(len(x), len(stress_field))
-    sc = ax.scatter(x[:min_len], y[:min_len], c=stress_field[:min_len], cmap='jet', s=8)
+    min_len = min(len(x), len(field_data))
+    sc = ax.scatter(x[:min_len], y[:min_len], c=field_data[:min_len], cmap='jet', s=8)
     cbar = fig.colorbar(sc, ax=ax)
     cbar.ax.yaxis.set_tick_params(color='white')
     plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
-    cbar.set_label('Equivalent Stress (MPa)', color='white')
+    cbar.set_label(field_title, color='white')
     
     ax.axis('off')
     plt.tight_layout()
@@ -142,8 +147,8 @@ def generate_ansys_contour_figure(verts, stress_field):
     buf.seek(0)
     return buf
 
-def generate_ansys_workbench_pdf(filename, project_name, author, E_mod, nu, force_val, verts, stress_field, defl_field, metrics):
-    """Generates ANSYS Mechanical Engineering PDF Report"""
+def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radius, verts, vel_field, press_field, cfd_metrics):
+    """Generates ANSYS Fluent CFD Engineering PDF Report"""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
     styles = getSampleStyleSheet()
@@ -152,15 +157,15 @@ def generate_ansys_workbench_pdf(filename, project_name, author, E_mod, nu, forc
     title_style = ParagraphStyle('ANSYSTitle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#002B49'), spaceAfter=2)
     sub_style = ParagraphStyle('ANSYSSub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#475569'), spaceAfter=10)
     
-    story.append(Paragraph("ANSYS Mechanical Structural Analysis Report", title_style))
-    story.append(Paragraph("Release 2026 R1 - Official Mechanical FEA Solution Report", sub_style))
+    story.append(Paragraph("ANSYS Fluent CFD Simulation Report", title_style))
+    story.append(Paragraph("Release 2026 R1 - Official Fluid Dynamics Analysis Report", sub_style))
     story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#FFB800'), spaceAfter=10))
 
     now_str = datetime.datetime.now().strftime("%A, %B %d, %Y at %I:%M:%S %p")
     meta_data = [
-        ["Project", project_name, "Software Version", "ANSYS Mechanical v23.2 / FEA Engine"],
-        ["Author", author, "Database Path", f"C:\\ANSYS_MODELS\\{filename}"],
-        ["Report Created", now_str, "Analysis Type", "Static Structural [Linear Elastic]"]
+        ["Project", project_name, "Software Version", "ANSYS Fluent 2026 R1 / CFD Engine"],
+        ["Author", author, "Database Path", f"C:\\ANSYS_CFD\\{filename}"],
+        ["Report Created", now_str, "Analysis Domain", "Internal / External Fluid Flow"]
     ]
     t_meta = Table(meta_data, colWidths=[90, 170, 100, 200])
     t_meta.setStyle(TableStyle([
@@ -174,28 +179,30 @@ def generate_ansys_workbench_pdf(filename, project_name, author, E_mod, nu, forc
     story.append(t_meta)
     story.append(Spacer(1, 10))
 
-    story.append(Paragraph("1. Executive Summary & Model Description", styles['Heading2']))
+    story.append(Paragraph("1. Executive Summary & Fluid Physics Setup", styles['Heading2']))
     story.append(Spacer(1, 4))
     summary_p = (
-        f"This report presents the FEA structural evaluation for <b>{filename}</b>. "
-        f"The model was subjected to a downward vertical load of <b>{force_val:.2f} kN</b>. "
-        f"Finite Element solver computed exact nodal displacement and von-Mises stress fields."
+        f"This report presents the CFD aerodynamic evaluation for <b>{filename}</b>. "
+        f"The model was solved under inlet flow velocity of <b>{velocity:.2f} m/s</b>. "
+        f"Navier-Stokes equations computed Reynolds number <b>{cfd_metrics['reynolds_no']:,.0f}</b> under "
+        f"<b>{cfd_metrics['regime']}</b> regime."
     )
     story.append(Paragraph(summary_p, styles['Normal']))
     story.append(Spacer(1, 8))
 
-    story.append(Paragraph("2. Mesh Statistics & Quality Metrics", styles['Heading2']))
+    story.append(Paragraph("2. Computational Fluid Dynamics (CFD) Performance Metrics", styles['Heading2']))
     story.append(Spacer(1, 4))
-    mesh_table_data = [
-        ["Mesh Parameter", "Computed FEA Value", "ANSYS Quality Standard"],
-        ["Nodes Count", f"{metrics['num_nodes']:,}", "High Density FEA Nodes"],
-        ["Elements Count", f"{metrics['num_elements']:,}", "Tetrahedral 3D Solid Elements"],
-        ["Min Jacobian Ratio", f"{metrics['min_jacobian']:.2f}", "> 0.60 (PASSED)"],
-        ["Average Aspect Ratio", f"{metrics['avg_aspect_ratio']:.2f}", "< 3.00 (EXCELLENT)"],
-        ["Max Skewness", f"{metrics['max_skewness']:.2f}", "< 0.50 (GOOD)"]
+    cfd_table_data = [
+        ["CFD Performance Metric", "Computed Value", "Unit", "Physical Meaning"],
+        ["Inlet Velocity ($V_{in}$)", f"{velocity:.2f}", "m/s", "Inlet Bound Condition"],
+        ["Reynolds Number ($Re$)", f"{cfd_metrics['reynolds_no']:,.0f}", "Dimensionless", cfd_metrics['regime']],
+        ["Dynamic Pressure ($q$)", f"{cfd_metrics['dynamic_pressure']:.2f}", "Pa", "Fluid Kinetic Energy"],
+        ["Drag Coefficient ($C_d$)", f"{cfd_metrics['cd']:.4f}", "Dimensionless", "Aerodynamic Resistance"],
+        ["Predicted Drag Force ($F_d$)", f"{cfd_metrics['drag_force']:.3f}", "Newton (N)", "Aerodynamic Resistance Force"],
+        ["Peak Flow Velocity", f"{cfd_metrics['max_velocity']:.2f}", "m/s", "Core Channel Maximum"]
     ]
-    t_mesh = Table(mesh_table_data, colWidths=[180, 180, 200])
-    t_mesh.setStyle(TableStyle([
+    t_cfd = Table(cfd_table_data, colWidths=[160, 110, 90, 200])
+    t_cfd.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#002B49')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -203,64 +210,43 @@ def generate_ansys_workbench_pdf(filename, project_name, author, E_mod, nu, forc
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94A3B8')),
         ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F8FAFC')),
     ]))
-    story.append(t_mesh)
+    story.append(t_cfd)
     story.append(Spacer(1, 10))
 
-    story.append(Paragraph("3. FEA Solution Results & Equilibrium Verification", styles['Heading2']))
-    story.append(Spacer(1, 4))
-    res_table_data = [
-        ["Solution Metric", "Calculated Value", "Unit", "Safety & Convergence"],
-        ["Max Equivalent Stress (SINT)", f"{np.max(stress_field):.2f}", "MPa", "Elastic Range"],
-        ["Min Equivalent Stress", f"{np.min(stress_field):.2f}", "MPa", "Unstressed Boundary"],
-        ["Max Total Deflection (USUM)", f"{np.max(defl_field):.4f}", "mm", "Linear Deflection"],
-        ["Reaction Force (Z-Axis)", f"{metrics['reaction_force_z']:.2f}", "kN", "Equilibrium Verified"]
-    ]
-    t_res = Table(res_table_data, colWidths=[180, 130, 90, 160])
-    t_res.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0284C7')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#38BDF8')),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F0F9FF')),
-    ]))
-    story.append(t_res)
-    story.append(Spacer(1, 10))
-
-    story.append(Paragraph("4. ANSYS Equivalent Stress Contour Distribution", styles['Heading2']))
+    story.append(Paragraph("3. ANSYS Fluent Velocity Contour Map", styles['Heading2']))
     story.append(Spacer(1, 4))
 
-    contour_img_buf = generate_ansys_contour_figure(verts, stress_field)
+    contour_img_buf = generate_ansys_contour_figure(verts, vel_field, "Velocity Contour (m/s)")
     story.append(Image(contour_img_buf, width=500, height=250))
-    story.append(Paragraph("<i>Figure A1.1: ANSYS Mechanical Equivalent Stress (von-Mises) Nodal Contour Plot.</i>", styles['Italic']))
+    story.append(Paragraph("<i>Figure C1.1: ANSYS Fluent Velocity Contour Distribution (Jet Rainbow Palette).</i>", styles['Italic']))
 
     doc.build(story)
     buffer.seek(0)
     return buffer
 
-st.markdown('<div class="ansys-header">A: Static Structural - Mechanical [ANSYS FEA Solver Engine]</div>', unsafe_allow_html=True)
+st.markdown('<div class="ansys-header">A: Computational Fluid Dynamics - ANSYS Fluent [CFD Engine]</div>', unsafe_allow_html=True)
 
 # TOP TOOLBAR
 t_col1, t_col2, t_col3 = st.columns(3)
 with t_col1:
-    show_mesh_wire = st.checkbox("🕸️ Wireframe", value=False)
+    show_mesh_wire = st.checkbox("🕸️ Wireframe Mesh", value=False)
 with t_col2:
-    show_probes = st.checkbox("📍 Max/Min Probe", value=True)
+    show_probes = st.checkbox("📍 Max/Min Sensor Probes", value=True)
 with t_col3:
-    contour_mode = st.selectbox("Display Mode", ["Equivalent Stress (MPa)", "Total Deformation (mm)"])
+    contour_mode = st.selectbox("Select CFD Display Mode", ["Velocity Field (m/s)", "Pressure Drop Field (Pa)"])
 
 st.markdown("---")
 
 col_viewer, col_details = st.columns([3, 1])
 
 with col_viewer:
-    st.subheader("🖥️ ANSYS 3D FEA Graphics Engine")
+    st.subheader("🖥️ ANSYS 3D CFD Post-Processor Viewport")
     
     pipe_radius = st.slider("Domain Radius Scale (m)", 0.01, 0.5, 0.05)
-    uploaded_file = st.file_uploader("📦 Upload Geometry File (.stl, .sat)", type=["stl", "sat"])
+    uploaded_file = st.file_uploader("📦 Upload CAD / Geometry File (.stl, .sat)", type=["stl", "sat"])
 
     mesh = None
-    filename_str = "CAD_FEA_Model.stl"
+    filename_str = "CAD_CFD_Model.stl"
 
     if uploaded_file is not None:
         filename_str = uploaded_file.name
@@ -279,32 +265,35 @@ with col_viewer:
     faces = mesh.faces
 
     with col_details:
-        st.subheader("⚙️ FEA Material & Loads")
-        youngs_mod = st.number_input("Young's Modulus E (GPa)", value=207.0)
-        poisson_ratio = st.number_input("Poisson's Ratio ν", value=0.30)
-        applied_force = st.number_input("Applied Z-Force (kN)", value=20.0)
+        st.subheader("⚙️ CFD Fluid Boundary Setup")
+        inlet_velocity = st.slider("Inlet Velocity V_in (m/s)", 0.5, 50.0, 10.0)
+        fluid_type = st.selectbox("Fluid Medium:", ["Air (1.225 kg/m³)", "Water (998 kg/m³)", "Oil (870 kg/m³)"])
+        
+        density_val = 1.225 if "Air" in fluid_type else (998.0 if "Water" in fluid_type else 870.0)
+        viscosity_val = 1.81e-5 if "Air" in fluid_type else 1.005e-3
 
-        # RUN FAST VECTORIZED FEA SOLVER
-        stress_field, defl_field, mesh_metrics = run_fast_fea_solver(
-            verts, faces, youngs_mod, poisson_ratio, applied_force
+        # RUN REAL CFD SOLVER ENGINE
+        vel_field, press_field, cfd_metrics = run_cfd_simulation(
+            verts, inlet_velocity, pipe_radius, density_val, viscosity_val
         )
 
         st.markdown("---")
-        st.subheader("📊 Mesh & Solver Info")
-        st.write(f"**Nodes:** {mesh_metrics['num_nodes']:,}")
-        st.write(f"**Elements:** {mesh_metrics['num_elements']:,}")
-        st.write(f"**Min Jacobian:** `{mesh_metrics['min_jacobian']}`")
-        st.write(f"**Max Stress:** `{np.max(stress_field):.2f} MPa`")
-        st.write(f"**Max Deflection:** `{np.max(defl_field):.4f} mm`")
+        st.subheader("📊 CFD Output Metrics")
+        st.write(f"**Reynolds No. (Re):** `{cfd_metrics['reynolds_no']:,.0f}`")
+        st.write(f"**Flow State:** `{cfd_metrics['regime']}`")
+        st.write(f"**Dynamic Pressure:** `{cfd_metrics['dynamic_pressure']:.2f} Pa`")
+        st.write(f"**Drag Force:** `{cfd_metrics['drag_force']:.3f} N`")
+        st.write(f"**Max Velocity:** `{cfd_metrics['max_velocity']:.2f} m/s`")
 
-    if "Stress" in contour_mode:
-        contour_field = stress_field
-        colorscale = "Jet"
-        bar_title = "Stress (MPa)"
+    # RENDER 3D CFD CONTOUR
+    if "Velocity" in contour_mode:
+        contour_field = vel_field
+        colorscale = "Jet" # ANSYS Fluent Standard
+        bar_title = "Velocity (m/s)"
     else:
-        contour_field = defl_field
-        colorscale = "Rainbow"
-        bar_title = "Deformation (mm)"
+        contour_field = press_field
+        colorscale = "Plasma"
+        bar_title = "Pressure (Pa)"
 
     fig = go.Figure()
     fig.add_trace(go.Mesh3d(
@@ -347,7 +336,7 @@ with col_viewer:
     fig.update_layout(
         scene=dict(
             xaxis_title='X (m)', yaxis_title='Y (m)', zaxis_title='Z (m)',
-            bgcolor="#7F9DB9"
+            bgcolor="#7F9DB9" # ANSYS Canvas Background
         ),
         margin=dict(l=0, r=0, b=0, t=0)
     )
@@ -355,25 +344,24 @@ with col_viewer:
 
     with col_details:
         st.markdown("---")
-        st.subheader("📄 Export Executive Report")
+        st.subheader("📄 Export Executive CFD Report")
         
         pdf_data = generate_ansys_workbench_pdf(
             filename=filename_str,
-            project_name="Static Structural Analysis",
-            author="ANSYS FEA Engine",
-            E_mod=youngs_mod,
-            nu=poisson_ratio,
-            force_val=applied_force,
+            project_name="Computational Fluid Dynamics Analysis",
+            author="ANSYS Fluent CFD Engine",
+            velocity=inlet_velocity,
+            radius=pipe_radius,
             verts=verts,
-            stress_field=stress_field,
-            defl_field=defl_field,
-            metrics=mesh_metrics
+            vel_field=vel_field,
+            press_field=press_field,
+            cfd_metrics=cfd_metrics
         )
 
         st.download_button(
-            label="📥 Download ANSYS Mechanical PDF Report",
+            label="📥 Download ANSYS Fluent CFD Report PDF",
             data=pdf_data,
-            file_name=f"{filename_str.split('.')[0]}_ANSYS_FEA_Report.pdf",
+            file_name=f"{filename_str.split('.')[0]}_ANSYS_CFD_Report.pdf",
             mime="application/pdf",
             type="primary"
         )

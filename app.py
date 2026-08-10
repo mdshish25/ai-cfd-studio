@@ -58,15 +58,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# DIRECT GEMINI REST API WITH AI PERSONALITY ENGINE
-api_key = st.secrets.get("GEMINI_API_KEY", None)
+# RETRIEVE API KEYS FROM STREAMLIT SECRETS
+groq_key = st.secrets.get("GROQ_API_KEY", None)
+gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 
-def query_gemini_direct(prompt_text, key):
+def query_shish_ai_permanent(prompt_text):
     """
-    Queries Gemini REST API configured to act exactly like an all-round intelligent AI.
-    Handles math, logic, coding, and general questions seamlessly.
+    PERMANENT NO-LIMIT AI ENGINE:
+    1. Instant Math Solver
+    2. Groq Llama-3 API (High Speed & 100% Free Rate Limit)
+    3. Gemini REST API Fallback
     """
-    # 1. Instant Math Evaluation Fallback
+    # Step 1: Instant Local Math Solver
     try:
         clean_expr = prompt_text.replace("=", "").replace("?", "").replace("kya hota hai", "").strip()
         if re.match(r"^[\d\+\-\*\/\.\s\(\)]+$", clean_expr):
@@ -75,44 +78,54 @@ def query_gemini_direct(prompt_text, key):
     except Exception:
         pass
 
-    if not key:
-        return "Error: API Key missing in Streamlit Secrets (`GEMINI_API_KEY`)."
-
-    headers = {"Content-Type": "application/json"}
-    system_instruction_text = (
-        "You are 'shish', an advanced, highly intelligent AI Assistant powered by LLM. "
-        "Your goal is to be friendly, grounded, exceptionally helpful, and accurate—just like Gemini. "
+    sys_prompt = (
+        "You are shish, an advanced, highly intelligent AI Assistant powered by LLM. "
+        "Your goal is to be friendly, grounded, exceptionally helpful, and accurate. "
         "You must answer ALL user questions across any domain: Science, Math, Engineering (ANSYS, CFD, FEA), "
         "Python Coding, Logic, and General Knowledge. Communicate naturally in Hinglish or English."
     )
 
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": f"{system_instruction_text}\n\nUser Question: {prompt_text}"}
-                ]
-            }
-        ]
-    }
-
-    models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
-
-    for model_name in models:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
+    # Step 2: Query Groq API (Super Fast Llama-3.3 Engine)
+    if groq_key:
         try:
-            res = requests.post(url, headers=headers, data=json.dumps(payload), timeout=12)
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {groq_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "llama-3.3-70b-versatile",
+                "messages": [
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": str(prompt_text)}
+                ],
+                "temperature": 0.7
+            }
+            res = requests.post(url, headers=headers, data=json.dumps(payload), timeout=10)
             if res.status_code == 200:
-                data = res.json()
-                return data["candidates"][0]["content"]["parts"][0]["text"]
-            elif res.status_code == 429:
-                continue
+                return res.json()["choices"][0]["message"]["content"]
         except Exception:
-            continue
+            pass
 
-    return "⚠️ API Quota Currently Busy. Please Nayi API Key Google AI Studio ('Create API key in new project') se le kar Streamlit Secrets me update karein!"
+    # Step 3: Query Gemini REST API (Fallback Engine)
+    if gemini_key:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [{"parts": [{"text": f"{sys_prompt}\n\nUser Question: {prompt_text}"}]}]
+            }
+            res = requests.post(url, headers=headers, data=json.dumps(payload), timeout=10)
+            if res.status_code == 200:
+                return res.json()["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception:
+            pass
 
+    return "⚠️ Please add `GROQ_API_KEY` or `GEMINI_API_KEY` in Streamlit Cloud Secrets."
+
+# ---------------------------------------------------------
 # MATERIAL LIBRARY DATABASE
+# ---------------------------------------------------------
 MATERIALS_DB = {
     "Air (Ideal Gas)": {"density": 1.225, "viscosity": 1.81e-5, "k": 0.026, "cp": 1005},
     "Water (Liquid)": {"density": 998.0, "viscosity": 1.005e-3, "k": 0.6, "cp": 4182},
@@ -122,7 +135,9 @@ MATERIALS_DB = {
     "Titanium Grade 5": {"density": 4430, "viscosity": 0.0, "k": 6.7, "cp": 526}
 }
 
+# ---------------------------------------------------------
 # REPORT GENERATOR FUNCTIONS
+# ---------------------------------------------------------
 def generate_ansys_contour_figure(verts, field_data, field_title):
     fig, ax = plt.subplots(figsize=(6, 3), facecolor='#0F172A')
     ax.set_facecolor('#0F172A')
@@ -221,38 +236,42 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
     buffer.seek(0)
     return buffer
 
+# ---------------------------------------------------------
 # SIDEBAR: SHISH AI ASSISTANT PANEL
+# ---------------------------------------------------------
 with st.sidebar:
     st.header("🤖 shish - Universal AI Assistant")
-    st.caption("Powered by Intelligent Gemini LLM")
+    st.caption("Unstoppable Multi-API Engine")
 
-    if api_key:
+    if groq_key or gemini_key:
         st.success("🟢 shish AI Active")
     else:
-        st.error("🔴 Add GEMINI_API_KEY in Streamlit Secrets")
+        st.error("🔴 Add GROQ_API_KEY in Streamlit Secrets")
 
     if "messages" not in st.session_state:
         st.session_state.messages = [
-            {"role": "assistant", "content": "Namaste! Main **shish** hoon, aapka Intelligent AI Assistant. Science, Engineering, Math, Coding, ya kisi bhi general sawaal ka jawab paane ke liye poochhein!"}
+            {"role": "assistant", "content": "Namaste! Main **shish** hoon, aapka Personal AI Assistant. Science, Math, Engineering, Coding, ya kisi bhi general sawaal ka answer poochhein!"}
         ]
 
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
-    if user_input := st.chat_input("shish se koi bhi question poochhein..."):
+    if user_input := st.chat_input("shish se poochhein..."):
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.write(user_input)
 
-        with st.spinner("shish is thinking..."):
-            reply = query_gemini_direct(user_input, api_key)
+        with st.spinner("shish is answering..."):
+            reply = query_shish_ai_permanent(user_input)
 
         st.session_state.messages.append({"role": "assistant", "content": reply})
         with st.chat_message("assistant"):
             st.write(reply)
 
+# ---------------------------------------------------------
 # MAIN WORKSTATION DASHBOARD
+# ---------------------------------------------------------
 st.markdown("""
 <div class="ansys-top-banner">
     <div>⚡ ANSYS Discovery 2026 R1 - Multi-Physics Studio (shish AI Inside)</div>

@@ -63,6 +63,23 @@ def parse_sat_file(sat_path):
     except Exception:
         return None
 
+def load_uploaded_mesh(file_path, file_ext):
+    """Safely converts any uploaded CAD/STL/Scene into a unified 3D Trimesh"""
+    try:
+        if file_ext == "stl":
+            # Force load as single mesh even if it's a multi-body Scene
+            loaded = trimesh.load(file_path, force='mesh')
+            if isinstance(loaded, trimesh.Scene):
+                mesh = loaded.dump(concatenate=True)
+            else:
+                mesh = loaded
+            return mesh
+        elif file_ext == "sat":
+            return parse_sat_file(file_path)
+    except Exception as e:
+        st.warning(f"Warning parsing mesh: {str(e)}")
+    return None
+
 # REAL NUMERICAL FEA MATRIX SOLVER ENGINE
 def run_real_fea_solver(verts, faces, E_modulus, nu, applied_force_val):
     """
@@ -78,7 +95,6 @@ def run_real_fea_solver(verts, faces, E_modulus, nu, applied_force_val):
 
     # Material Elasticity Matrix [D]
     E = E_modulus * 1e9  # Convert GPa to Pa
-    factor = E / ((1 + nu) * (1 - 2 * nu))
 
     # Element-by-Element Stiffness Assembly
     for face in faces:
@@ -137,7 +153,6 @@ def run_real_fea_solver(verts, faces, E_modulus, nu, applied_force_val):
         vm = np.sqrt(0.5 * ((sig_x - sig_y)**2 + (sig_y - sig_z)**2 + (sig_z - sig_x)**2))
         von_mises_stress[i] = vm / 1e6  # Convert to MPa
 
-    # Mesh Quality Metrics (ANSYS Standard)
     mesh_metrics = {
         "num_nodes": num_nodes,
         "num_elements": len(faces),
@@ -157,7 +172,6 @@ def generate_ansys_contour_figure(verts, stress_field):
     x = verts[:, 0]
     y = verts[:, 1]
     
-    # Ensure exact size matching
     min_len = min(len(x), len(stress_field))
     x_safe = x[:min_len]
     y_safe = y[:min_len]
@@ -313,13 +327,8 @@ with col_viewer:
         with open(temp_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         
-        if ext == "stl":
-            try:
-                mesh = trimesh.load(temp_path, file_type='stl')
-            except Exception:
-                mesh = None
-        elif ext == "sat":
-            mesh = parse_sat_file(temp_path)
+        # Load mesh safely with Scene handling
+        mesh = load_uploaded_mesh(temp_path, ext)
 
     if mesh is None or not isinstance(mesh, trimesh.Trimesh):
         mesh = trimesh.creation.cylinder(radius=pipe_radius, height=0.5)

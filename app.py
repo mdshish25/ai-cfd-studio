@@ -46,6 +46,34 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+def parse_sat_file(sat_path):
+    """Extract spatial vertices from ACIS .sat ASCII file"""
+    raw_vertices = []
+    with open(sat_path, 'r', errors='ignore') as f:
+        content = f.read()
+        pattern = r'([-+]?\d*\.\d+|\d+)\s+([-+]?\d*\.\d+|\d+)\s+([-+]?\d*\.\d+|\d+)'
+        matches = re.findall(pattern, content)
+        
+        for m in matches:
+            try:
+                v = [float(m[0]), float(m[1]), float(m[2])]
+                if any(abs(c) > 0.0001 for c in v) and all(abs(c) < 2000.0 for c in v):
+                    raw_vertices.append(v)
+            except ValueError:
+                continue
+
+    if len(raw_vertices) < 12:
+        return None
+
+    vertices = np.unique(np.array(raw_vertices), axis=0)
+
+    try:
+        cloud = trimesh.PointCloud(vertices)
+        mesh = trimesh.convex.convex_hull(cloud)
+        return mesh
+    except Exception:
+        return None
+
 st.markdown('<div class="ansys-header">A: Static Structural - Mechanical [ANSYS Multiphysics]</div>', unsafe_allow_html=True)
 
 # TOP TOOLBAR ACTION BUTTONS
@@ -100,7 +128,27 @@ with col_viewer:
     
     pipe_radius = st.slider("Domain Scale (m)", 0.01, 0.5, 0.05, key="scale_s")
     
-    mesh = trimesh.creation.cylinder(radius=pipe_radius, height=0.5) if uploaded_file is None else trimesh.load("temp.stl")
+    mesh = None
+    if uploaded_file is not None:
+        filename = uploaded_file.name
+        ext = filename.split(".")[-1].lower()
+        temp_path = f"temp_upload.{ext}"
+        
+        with open(temp_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        
+        if ext == "stl":
+            try:
+                # Load using file buffer directly or saved path safely
+                mesh = trimesh.load(temp_path, file_type='stl')
+            except Exception:
+                mesh = None
+        elif ext == "sat":
+            mesh = parse_sat_file(temp_path)
+
+    if mesh is None or not isinstance(mesh, trimesh.Trimesh):
+        mesh = trimesh.creation.cylinder(radius=pipe_radius, height=0.5)
+
     verts = mesh.vertices
     faces = mesh.faces
 
@@ -162,7 +210,7 @@ with col_viewer:
     fig.update_layout(
         scene=dict(
             xaxis_title='X (mm)', yaxis_title='Y (mm)', zaxis_title='Z (mm)',
-            bgcolor="#7F9DB9"  # ANSYS Workbench Standard Blueish Canvas Background
+            bgcolor="#7F9DB9"  # ANSYS Workbench Canvas Blue Background
         ),
         margin=dict(l=0, r=0, b=0, t=0)
     )
@@ -171,9 +219,8 @@ with col_viewer:
 # PANE 3: DETAILS OF SELECTION & LIGHTING / LOADS
 with col_details:
     st.subheader("🔍 Details of Selection")
-    st.write("**Material Assignment:** Structural Steel")
-    st.write("**Mesh Nodes:** 45,210")
-    st.write("**Mesh Elements:** 22,108")
+    st.write(f"**Mesh Vertices:** {len(verts):,}")
+    st.write(f"**Mesh Faces:** {len(faces):,}")
     
     st.markdown("---")
     st.subheader("⚙️ Analysis Loads")

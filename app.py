@@ -18,7 +18,7 @@ from reportlab.lib import colors
 # Streamlit Page Setup
 st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="collapsed")
 
-# CUSTOM WORKSTATION THEME & LARGER FLOATING POP-UP CHATBOT STYLING
+# CUSTOM WORKSTATION THEME & WHATSAPP-STYLE FLOATING POP-UP CHATBOT STYLING
 st.markdown("""
 <style>
     .stApp {
@@ -80,14 +80,14 @@ st.markdown("""
         background-color: #DC2626 !important;
     }
     
-    /* LARGER FLOATING BOTTOM-LEFT WHITE CHAT CONTAINER STYLING */
+    /* WHATSAPP STYLE FLOATING CHAT CONTAINER STYLING */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) {
         position: fixed !important;
         bottom: 25px !important;
         left: 25px !important;
         z-index: 999999 !important;
         width: 480px !important;
-        background-color: #FFFFFF !important;
+        background-color: #E5DDD5 !important; /* WhatsApp Chat Background */
         border: 2px solid #CBD5E1 !important;
         border-radius: 16px !important;
         padding: 18px !important;
@@ -95,24 +95,36 @@ st.markdown("""
         color: #0F172A !important;
     }
 
-    /* CLEAR, BOLDER & LARGER TEXT STYLING FOR CHAT */
-    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) p,
-    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) span,
-    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) li,
-    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div {
-        color: #0F172A !important;
-        font-weight: 600 !important;
-        font-size: 15px !important;
-        line-height: 1.6 !important;
+    /* WHATSAPP BUBBLES ALIGNMENT & COLORS */
+    /* USER MESSAGE (RIGHT ALIGNED - WHATSAPP GREEN) */
+    div[data-testid="stChatMessage"]:has(div[aria-label="Chat message from user"]) {
+        background-color: #DCF8C6 !important;
+        margin-left: auto !important;
+        margin-right: 0px !important;
+        border-radius: 12px 0px 12px 12px !important;
+        max-width: 80% !important;
+        border: 1px solid #C4E8B0 !important;
     }
 
-    /* Chat Messages Backgrounds */
-    div[data-testid="stChatMessage"] {
-        background-color: #F1F5F9 !important;
-        border-radius: 10px !important;
-        padding: 12px 16px !important;
-        margin-bottom: 10px !important;
-        border: 1px solid #CBD5E1 !important;
+    /* ASSISTANT MESSAGE (LEFT ALIGNED - WHITE BUBBLE) */
+    div[data-testid="stChatMessage"]:has(div[aria-label="Chat message from assistant"]) {
+        background-color: #FFFFFF !important;
+        margin-left: 0px !important;
+        margin-right: auto !important;
+        border-radius: 0px 12px 12px 12px !important;
+        max-width: 85% !important;
+        border: 1px solid #E2E8F0 !important;
+    }
+
+    /* TEXT INSIDE BUBBLES */
+    div[data-testid="stChatMessage"] p,
+    div[data-testid="stChatMessage"] span,
+    div[data-testid="stChatMessage"] li,
+    div[data-testid="stChatMessage"] div {
+        color: #111B21 !important;
+        font-weight: 600 !important;
+        font-size: 15px !important;
+        line-height: 1.5 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -495,7 +507,7 @@ with col_details:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# BOTTOM-LEFT FLOATING POP-UP CHATBOT WIDGET (LARGER & BOLD HEADER)
+# BOTTOM-LEFT FLOATING POP-UP CHATBOT WIDGET (WHATSAPP UI)
 # ---------------------------------------------------------
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False
@@ -512,7 +524,7 @@ if st.session_state.chat_open:
         st.markdown('<div class="floating-chat-anchor"></div>', unsafe_allow_html=True)
         head_col1, head_col2 = st.columns([5, 1])
         with head_col1:
-            st.markdown("<h2 style='color:#0F172A; margin:0; font-size:22px; font-weight:800; letter-spacing:0.3px;'>🤖 shish AI Assistant</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='color:#0F172A; margin:0; font-size:22px; font-weight:800;'>🤖 shish AI Assistant</h2>", unsafe_allow_html=True)
         with head_col2:
             if st.button("─", help="Minimize Chat", key="minimize_chat_btn"):
                 st.session_state.chat_open = False

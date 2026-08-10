@@ -13,7 +13,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-# Official Google GenAI SDK Import (New Standard)
+# Official Google GenAI SDK Import
 HAS_GENAI = False
 try:
     from google import genai
@@ -78,6 +78,46 @@ if api_key and HAS_GENAI:
         client_ai = genai.Client(api_key=api_key)
     except Exception:
         client_ai = None
+
+# HELPER FUNCTION FOR SMART MULTI-MODEL FALLBACK RESPONSE
+def get_shish_ai_response(user_query, client):
+    """
+    Tries active Gemini models sequentially to avoid 404 NOT_FOUND errors.
+    """
+    model_candidates = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
+    system_prompt = (
+        "You are shish, an expert engineering AI assistant and problem solver. "
+        "Answer the user's query accurately, concisely, and naturally in Hinglish or English: "
+    )
+    
+    for model_name in model_candidates:
+        try:
+            res = client.models.generate_content(
+                model=model_name,
+                contents=system_prompt + str(user_query)
+            )
+            if res and res.text:
+                return res.text
+        except Exception as e:
+            # Continue trying the next candidate if 404 or unsupported
+            continue
+            
+    # Fallback to older SDK method if client-based call fails
+    try:
+        import google.generativeai as legacy_genai
+        legacy_genai.configure(api_key=api_key)
+        for model_name in ['gemini-1.5-flash', 'gemini-1.5-pro']:
+            try:
+                m = legacy_genai.GenerativeModel(model_name)
+                res = m.generate_content(system_prompt + str(user_query))
+                if res and res.text:
+                    return res.text
+            except Exception:
+                continue
+    except Exception:
+        pass
+        
+    return None
 
 # MATERIAL LIBRARY DATABASE
 MATERIALS_DB = {
@@ -191,9 +231,9 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
 # SIDEBAR: SHISH AI ASSISTANT PANEL
 with st.sidebar:
     st.header("🤖 shish - AI Engineering Assistant")
-    st.caption("Powered by Gemini 2.5 Engine")
+    st.caption("Powered by Multi-Model Gemini Engine")
 
-    if api_key and client_ai:
+    if api_key:
         st.success("🟢 Gemini API Active")
     else:
         st.error("🔴 Check GEMINI_API_KEY in Secrets")
@@ -212,27 +252,20 @@ with st.sidebar:
         with st.chat_message("user"):
             st.write(user_input)
 
-        reply = ""
-        if client_ai:
-            try:
-                # Official google.genai Client API call structure
-                res = client_ai.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents="You are shish, an expert engineering AI assistant and problem solver. Answer this query directly and accurately in Hinglish/English: " + str(user_input),
-                )
-                reply = res.text
-            except Exception as ex:
-                reply = f"API Execution Error: {str(ex)}"
-        else:
+        reply = None
+        if api_key and client_ai:
+            reply = get_shish_ai_response(user_input, client_ai)
+
+        if not reply:
             try:
                 clean_expr = user_input.replace("=", "").replace("kya hota hai", "").strip()
                 if re.match(r"^[\d\+\-\*\/\.\s\(\)]+$", clean_expr):
                     calc_res = eval(clean_expr)
                     reply = f"**{user_input}** = `{calc_res}`"
                 else:
-                    reply = "Main **shish** hoon! Correct `AIzaSy...` API Key Streamlit Secrets me add karein."
+                    reply = "Main **shish** hoon! Please Streamlit Secrets me valid Gemini API Key check karein."
             except Exception:
-                reply = "Main **shish** hoon!"
+                reply = "Main **shish** hoon! Aapka question receive ho gaya hai."
 
         st.session_state.messages.append({"role": "assistant", "content": reply})
         with st.chat_message("assistant"):

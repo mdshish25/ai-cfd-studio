@@ -18,15 +18,28 @@ from reportlab.lib import colors
 # Streamlit Page Setup
 st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="collapsed")
 
-# CUSTOM WORKSTATION THEME & DRAGGABLE CHATBOX STYLING
-st.markdown("""
+# INITIALIZE POSITION STATE
+if "chat_pos" not in st.session_state:
+    st.session_state.chat_pos = "Bottom-Left"
+
+# POSITION CSS MAPPING
+pos_css = {
+    "Bottom-Left": "bottom: 25px !important; left: 25px !important;",
+    "Bottom-Right": "bottom: 25px !important; right: 25px !important;",
+    "Top-Left": "top: 25px !important; left: 25px !important;",
+    "Top-Right": "top: 25px !important; right: 25px !important;"
+}
+current_pos_css = pos_css.get(st.session_state.chat_pos, pos_css["Bottom-Left"])
+
+# CUSTOM WORKSTATION THEME & POSITIONABLE CHATBOX STYLING
+st.markdown(f"""
 <style>
-    .stApp {
+    .stApp {{
         background-color: #0F172A;
         color: #F8FAFC;
         font-family: 'Segoe UI', Inter, sans-serif;
-    }
-    .ansys-top-banner {
+    }}
+    .ansys-top-banner {{
         background: linear-gradient(90deg, #0284C7, #0F172A);
         color: #FFFFFF;
         padding: 10px 20px;
@@ -36,16 +49,16 @@ st.markdown("""
         border-bottom: 2px solid #38BDF8;
         border-radius: 4px;
         margin-bottom: 15px;
-    }
-    .ansys-card {
+    }}
+    .ansys-card {{
         background-color: #1E293B;
         border: 1px solid #334155;
         border-radius: 8px;
         padding: 16px;
         margin-bottom: 15px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    }
-    .card-title {
+    }}
+    .card-title {{
         color: #38BDF8;
         font-size: 14px;
         font-weight: 600;
@@ -54,17 +67,16 @@ st.markdown("""
         margin-bottom: 12px;
         border-bottom: 1px solid #334155;
         padding-bottom: 6px;
-    }
+    }}
 
-    /* SPECIFIC FLOATING AI BUTTON (ISOLATED CSS) */
-    div.floating-ai-btn-container {
+    /* SPECIFIC FLOATING AI BUTTON */
+    div.floating-ai-btn-container {{
         position: fixed !important;
-        bottom: 25px !important;
-        left: 25px !important;
+        {current_pos_css}
         z-index: 999999 !important;
-    }
+    }}
 
-    div.floating-ai-btn-container button {
+    div.floating-ai-btn-container button {{
         background-color: #EF4444 !important;
         color: #FFFFFF !important;
         border: none !important;
@@ -74,70 +86,69 @@ st.markdown("""
         font-size: 16px !important;
         box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4) !important;
         cursor: pointer !important;
-    }
+    }}
 
-    div.floating-ai-btn-container button:hover {
+    div.floating-ai-btn-container button:hover {{
         background-color: #DC2626 !important;
-    }
+    }}
     
-    /* WHATSAPP STYLE FLOATING & MOVEABLE CHAT CONTAINER STYLING */
-    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) {
+    /* WHATSAPP STYLE MOVEABLE CHAT CONTAINER */
+    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) {{
         position: fixed !important;
-        bottom: 25px !important;
-        left: 25px !important;
+        {current_pos_css}
         z-index: 999999 !important;
         width: 480px !important;
         max-width: 90vw !important;
         background-color: #E5DDD5 !important;
         border: 2px solid #CBD5E1 !important;
         border-radius: 16px !important;
-        padding: 18px 18px 10px 18px !important;
+        padding: 16px !important;
         box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4) !important;
         color: #0F172A !important;
         resize: both !important;
         overflow: auto !important;
-    }
+    }}
 
     /* REMOVE EXTRA BOTTOM SPACE / LINE UNDER INPUT BOX */
-    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div[data-testid="stBottom"] {
+    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div[data-testid="stBottom"] {{
         padding-bottom: 0px !important;
         margin-bottom: 0px !important;
-    }
+    }}
 
-    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div[data-testid="stChatInput"] {
+    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div[data-testid="stChatInput"] {{
         margin-bottom: 0px !important;
         padding-bottom: 0px !important;
-    }
+    }}
 
     /* WHATSAPP BUBBLES ALIGNMENT & COLORS */
-    div[data-testid="stChatMessage"]:has(div[aria-label="Chat message from user"]) {
+    div[data-testid="stChatMessage"]:has(div[aria-label="Chat message from user"]) {{
         background-color: #DCF8C6 !important;
         margin-left: auto !important;
         margin-right: 0px !important;
         border-radius: 12px 0px 12px 12px !important;
         max-width: 80% !important;
         border: 1px solid #C4E8B0 !important;
-    }
+    }}
 
-    div[data-testid="stChatMessage"]:has(div[aria-label="Chat message from assistant"]) {
+    div[data-testid="stChatMessage"]:has(div[aria-label="Chat message from assistant"]) {{
         background-color: #FFFFFF !important;
         margin-left: 0px !important;
         margin-right: auto !important;
         border-radius: 0px 12px 12px 12px !important;
         max-width: 85% !important;
         border: 1px solid #E2E8F0 !important;
-    }
+    }}
 
     /* TEXT INSIDE BUBBLES */
     div[data-testid="stChatMessage"] p,
     div[data-testid="stChatMessage"] span,
     div[data-testid="stChatMessage"] li,
-    div[data-testid="stChatMessage"] div {
+    div[data-testid="stChatMessage"] div {{
         color: #111B21 !important;
         font-weight: 600 !important;
         font-size: 15px !important;
         line-height: 1.5 !important;
-    }
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -519,7 +530,7 @@ with col_details:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# DRAGGABLE / MOVEABLE FLOATING CHATBOT WIDGET
+# FLOATING & POSITIONABLE CHATBOT WIDGET
 # ---------------------------------------------------------
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False
@@ -534,10 +545,15 @@ if not st.session_state.chat_open:
 if st.session_state.chat_open:
     with st.container():
         st.markdown('<div class="floating-chat-anchor"></div>', unsafe_allow_html=True)
-        head_col1, head_col2 = st.columns([5, 1])
+        head_col1, head_col2, head_col3 = st.columns([3.5, 1.8, 0.7])
         with head_col1:
-            st.markdown("<h2 style='color:#0F172A; margin:0; font-size:22px; font-weight:800;'>🤖 shish AI Assistant</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='color:#0F172A; margin:0; font-size:20px; font-weight:800;'>🤖 shish AI</h2>", unsafe_allow_html=True)
         with head_col2:
+            new_pos = st.selectbox("Position", ["Bottom-Left", "Bottom-Right", "Top-Left", "Top-Right"], index=["Bottom-Left", "Bottom-Right", "Top-Left", "Top-Right"].index(st.session_state.chat_pos), label_visibility="collapsed", key="pos_select")
+            if new_pos != st.session_state.chat_pos:
+                st.session_state.chat_pos = new_pos
+                st.rerun()
+        with head_col3:
             if st.button("─", help="Minimize Chat", key="minimize_chat_btn"):
                 st.session_state.chat_open = False
                 st.rerun()
@@ -547,7 +563,7 @@ if st.session_state.chat_open:
                 {"role": "assistant", "content": "Hello! I am **Shish**. You can ask any question!"}
             ]
 
-        chat_container = st.container(height=400)
+        chat_container = st.container(height=380)
         with chat_container:
             for msg in st.session_state.messages:
                 with st.chat_message(msg["role"]):

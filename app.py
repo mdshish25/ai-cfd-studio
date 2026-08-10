@@ -31,7 +31,7 @@ pos_css = {
 }
 current_pos_css = pos_css.get(st.session_state.chat_pos, pos_css["Bottom-Left"])
 
-# CUSTOM WORKSTATION THEME & POSITIONABLE CHATBOX STYLING
+# CUSTOM WORKSTATION THEME & ATTRACTIVE FLOATING BUTTON STYLING
 st.markdown(f"""
 <style>
     .stApp {{
@@ -69,7 +69,7 @@ st.markdown(f"""
         padding-bottom: 6px;
     }}
 
-    /* SPECIFIC FLOATING AI BUTTON */
+    /* ATTRACTIVE BIG FLOATING AI BUTTON */
     div.floating-ai-btn-container {{
         position: fixed !important;
         {current_pos_css}
@@ -77,19 +77,23 @@ st.markdown(f"""
     }}
 
     div.floating-ai-btn-container button {{
-        background-color: #EF4444 !important;
+        background: linear-gradient(135deg, #0284C7 0%, #2563EB 100%) !important;
         color: #FFFFFF !important;
-        border: none !important;
-        border-radius: 25px !important;
-        padding: 14px 28px !important;
-        font-weight: 700 !important;
-        font-size: 16px !important;
-        box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4) !important;
+        border: 2px solid #38BDF8 !important;
+        border-radius: 30px !important;
+        padding: 16px 32px !important;
+        font-weight: 800 !important;
+        font-size: 18px !important;
+        letter-spacing: 0.5px !important;
+        box-shadow: 0 10px 25px rgba(2, 132, 199, 0.5), 0 0 15px rgba(56, 189, 248, 0.4) !important;
         cursor: pointer !important;
+        transition: all 0.3s ease-in-out !important;
     }}
 
     div.floating-ai-btn-container button:hover {{
-        background-color: #DC2626 !important;
+        background: linear-gradient(135deg, #0369A1 0%, #1D4ED8 100%) !important;
+        transform: translateY(-3px) scale(1.03) !important;
+        box-shadow: 0 14px 30px rgba(2, 132, 199, 0.7), 0 0 20px rgba(56, 189, 248, 0.6) !important;
     }}
     
     /* WHATSAPP STYLE MOVEABLE CHAT CONTAINER */
@@ -109,7 +113,7 @@ st.markdown(f"""
         overflow: auto !important;
     }}
 
-    /* REMOVE EXTRA BOTTOM SPACE / LINE UNDER INPUT BOX */
+    /* REMOVE EXTRA BOTTOM SPACE UNDER INPUT BOX */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div[data-testid="stBottom"] {{
         padding-bottom: 0px !important;
         margin-bottom: 0px !important;

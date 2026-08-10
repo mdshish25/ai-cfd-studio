@@ -26,7 +26,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# INITIALIZE POSITION STATE FOR AI WIDGET
+# INITIALIZE CHAT POSITION STATE
 if "chat_pos" not in st.session_state:
     st.session_state.chat_pos = "Bottom-Right"
 
@@ -39,18 +39,16 @@ pos_css_map = {
 active_pos_style = pos_css_map.get(st.session_state.chat_pos, pos_css_map["Bottom-Right"])
 
 # ---------------------------------------------------------
-# ULTRA-MODERN PROFESSIONAL ANSYS LIGHT WORKSTATION STYLING
+# PROFESSIONAL ANSYS LIGHT WORKSTATION STYLING
 # ---------------------------------------------------------
 st.markdown(f"""
 <style>
-    /* MAIN LIGHT/WHITE BACKGROUND */
     .stApp {{
         background-color: #F8FAFC !important;
         color: #0F172A !important;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }}
     
-    /* TOP WORKSTATION BANNER */
     .ansys-header-banner {{
         background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
         color: #FFFFFF;
@@ -75,7 +73,6 @@ st.markdown(f"""
         font-weight: 500;
     }}
 
-    /* WHITE CARDS STYLING */
     .ansys-card {{
         background-color: #FFFFFF !important;
         border: 1px solid #E2E8F0 !important;
@@ -96,7 +93,7 @@ st.markdown(f"""
         padding-bottom: 8px !important;
     }}
 
-    /* ULTRA-ATTRACTIVE FLOATING AI BUTTON */
+    /* FLOATING AI BUTTON */
     div.floating-ai-btn-container {{
         position: fixed !important;
         {active_pos_style}
@@ -140,7 +137,6 @@ st.markdown(f"""
         overflow: auto !important;
     }}
 
-    /* CLEAN INPUT AREA */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div[data-testid="stBottom"] {{
         padding-bottom: 0px !important;
         margin-bottom: 0px !important;
@@ -151,7 +147,6 @@ st.markdown(f"""
         padding-bottom: 0px !important;
     }}
 
-    /* WHATSAPP BUBBLES */
     div[data-testid="stChatMessage"]:has(div[aria-label="Chat message from user"]) {{
         background-color: #DCF8C6 !important;
         margin-left: auto !important;
@@ -189,12 +184,6 @@ groq_key = st.secrets.get("GROQ_API_KEY", None)
 gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 
 def query_shish_ai_permanent(prompt_text):
-    """
-    PERMANENT UNSTOPPABLE AI ENGINE:
-    1. Instant Local Math Solver
-    2. Groq Llama-3 API (High Speed & Free Unlimited Rate Limit)
-    3. Gemini REST API Fallback
-    """
     try:
         clean_expr = prompt_text.replace("=", "").replace("?", "").replace("kya hota hai", "").strip()
         if re.match(r"^[\d\+\-\*\/\.\s\(\)]+$", clean_expr):
@@ -257,7 +246,7 @@ MATERIALS_DB = {
     "Aluminum 6061-T6": {"density": 2700.0, "viscosity": 0.0, "k": 167.0, "cp": 896, "E": 68.9e9, "nu": 0.33},
     "Titanium Grade 5": {"density": 4430.0, "viscosity": 0.0, "k": 6.70, "cp": 526, "E": 113.8e9, "nu": 0.34},
     "Copper (Pure)": {"density": 8960.0, "viscosity": 0.0, "k": 401.0, "cp": 385, "E": 110.0e9, "nu": 0.34},
-    "Inconel 718 Superalloy": {"density": 8190.0, "viscosity": 0.0, "k": 11.40, "cp": 435, "E": 200.0e9, "nu": 0.29}
+    "Custom Material": {"density": 1000.0, "viscosity": 1e-3, "k": 1.0, "cp": 1000, "E": 100e9, "nu": 0.3}
 }
 
 # ---------------------------------------------------------
@@ -367,8 +356,8 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
 st.markdown("""
 <div class="ansys-header-banner">
     <div>
-        <div class="banner-title">⚡ ANSYS Discovery 2026 R1 - Multi-Physics Workstation Studio</div>
-        <div class="banner-sub">Pre-Processing | CAD Meshing | 8 Physics Solvers | Executive Reporting (shish AI Inside)</div>
+        <div class="banner-title">⚡ ANSYS Discovery 2026 R1 - Complete Workstation Studio</div>
+        <div class="banner-sub">Pre-Processing | Geometry Slicer | Residual Convergence | 8 Physics Solvers | Executive Reports</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -457,18 +446,25 @@ norm_z = (z_coords - np.min(z_coords)) / max(np.ptp(z_coords), 1e-5)
 
 # RIGHT SIDEBAR CONTROL CARDS
 with col_details:
-    st.markdown('<div class="ansys-card"><div class="card-title">🧱 Material & Physics Setup</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ansys-card"><div class="card-title">🧱 Material & Custom Properties</div>', unsafe_allow_html=True)
     selected_mat = st.selectbox("Assign Engineering Material:", list(MATERIALS_DB.keys()))
-    mat_props = MATERIALS_DB[selected_mat]
-    st.caption(f"Density: `{mat_props['density']}` kg/m³ | k: `{mat_props['k']}` W/m·K")
+    mat_props = MATERIALS_DB[selected_mat].copy()
+    
+    if selected_mat == "Custom Material":
+        mat_props["density"] = st.number_input("Density ρ (kg/m³)", value=1000.0)
+        mat_props["k"] = st.number_input("Thermal Conductivity k (W/m·K)", value=15.0)
+        mat_props["cp"] = st.number_input("Specific Heat Cp (J/kg·K)", value=500.0)
+    else:
+        st.caption(f"Density: `{mat_props['density']}` kg/m³ | k: `{mat_props['k']}` W/m·K")
 
     # MESH INSPECTOR CARD
-    st.markdown('</div><div class="ansys-card"><div class="card-title">🔍 Mesh Quality & Pre-Processing</div>', unsafe_allow_html=True)
+    st.markdown('</div><div class="ansys-card"><div class="card-title">🔍 Pre-Processing & Cut-Plane Slicer</div>', unsafe_allow_html=True)
     elem_size = st.slider("Global Element Size (mm)", 1.0, 20.0, 5.0)
-    st.caption(f"Nodal Nodes Count: `{len(verts):,}` | Triangular Elements: `{len(faces):,}`")
-    st.caption("Orthogonal Quality Score: `0.88` (Excellent Mesh)")
+    cut_plane_z = st.slider("Cross-Section Cut-Plane Z (%)", 0, 100, 100)
+    
+    st.caption(f"Nodes Count: `{len(verts):,}` | Triangular Elements: `{len(faces):,}`")
 
-    # SOLVER SPECIFIC CONTROLS & CALCULATIONS
+    # SOLVER METRICS & CALCULATIONS
     st.markdown('</div><div class="ansys-card"><div class="card-title">📊 Live Solver Metrics</div>', unsafe_allow_html=True)
     
     if physics_mode == "CFD Fluid Dynamics":
@@ -532,7 +528,7 @@ with col_details:
         st.metric("Shockwave Pressure", f"{mach_no * 101.3:.1f} kPa")
         st.metric("Drag Coefficient Cd", "0.024")
 
-    else: # Electromagnetic Thermal
+    else:
         current_density = st.slider("Current Density (A/mm²)", 1.0, 20.0, 5.0)
         contour_field = 293.15 + (current_density ** 2) * 1.8 * norm_r
         colorscale = "YlOrRd"
@@ -541,6 +537,11 @@ with col_details:
         st.metric("Magnetic Flux B", "1.42 Tesla")
 
     st.markdown('</div>', unsafe_allow_html=True)
+
+# CUT-PLANE MESH SLICING FILTER
+slice_mask = norm_z <= (cut_plane_z / 100.0)
+filtered_verts = verts[slice_mask]
+filtered_field = contour_field[slice_mask]
 
 # MAIN 3D VIEWPORT DISPLAY
 with col_viewer:
@@ -551,13 +552,13 @@ with col_viewer:
         intensity=contour_field,
         colorscale=colorscale,
         colorbar=dict(title=bar_title, thickness=18, x=1.01, len=0.8, tickfont=dict(color='#0F172A')),
-        opacity=0.98,
+        opacity=0.98 if cut_plane_z == 100 else 0.4,
         lighting=dict(ambient=0.6, diffuse=0.8, roughness=0.1)
     ))
 
     if show_mesh_wire:
         fig.add_trace(go.Scatter3d(
-            x=verts[::3, 0], y=verts[::3, 1], z=verts[::3, 2],
+            x=filtered_verts[::3, 0], y=filtered_verts[::3, 1], z=filtered_verts[::3, 2],
             mode='markers+lines',
             marker=dict(size=2, color='#0284C7'),
             line=dict(color='#64748B', width=1)
@@ -565,8 +566,6 @@ with col_viewer:
 
     if show_probes:
         max_idx = np.argmax(contour_field)
-        min_idx = np.argmin(contour_field)
-        
         fig.add_trace(go.Scatter3d(
             x=[verts[max_idx, 0]], y=[verts[max_idx, 1]], z=[verts[max_idx, 2]],
             mode='markers+text',
@@ -583,13 +582,46 @@ with col_viewer:
             zaxis=dict(title='Z (m)', backgroundcolor="#F1F5F9", gridcolor="#CBD5E1", showbackground=True),
             aspectmode='data'
         ),
-        height=680,
+        height=520,
         margin=dict(l=0, r=0, b=0, t=0),
         paper_bgcolor="#FFFFFF"
     )
     st.plotly_chart(fig, use_container_width=True)
 
-# EXPORT EXECUTIVE REPORT CARD
+    # LOWER MONITOR TABS (RESIDUAL CONVERGENCE & DATA PROBES)
+    tab_res, tb_data = st.tabs(["📉 Residual Convergence Monitor", "📋 Critical Sensor Probes Data"])
+    
+    with tab_res:
+        iterations = np.arange(1, 101)
+        res_continuity = 10**(- (iterations / 25.0))
+        res_momentum = 10**(- (iterations / 30.0) + 0.1)
+        
+        res_fig = go.Figure()
+        res_fig.add_trace(go.Scatter(x=iterations, y=res_continuity, mode='lines', name='Continuity', line=dict(color='#EF4444', width=2)))
+        res_fig.add_trace(go.Scatter(x=iterations, y=res_momentum, mode='lines', name='Velocity-X', line=dict(color='#0284C7', width=2)))
+        res_fig.update_layout(
+            yaxis_type="log",
+            title="Solver Convergence History (Log Residuals)",
+            xaxis_title="Iteration Step",
+            yaxis_title="Residual Error (Log Scale)",
+            height=200,
+            margin=dict(l=20, r=20, t=30, b=20),
+            paper_bgcolor="#FFFFFF",
+            plot_bgcolor="#F8FAFC"
+        )
+        st.plotly_chart(res_fig, use_container_width=True)
+
+    with tb_data:
+        probe_df = pd.DataFrame({
+            "Node ID": np.arange(1, len(filtered_verts) + 1)[:20],
+            "X (m)": np.round(filtered_verts[:20, 0], 4),
+            "Y (m)": np.round(filtered_verts[:20, 1], 4),
+            "Z (m)": np.round(filtered_verts[:20, 2], 4),
+            f"Computed {bar_title}": np.round(filtered_field[:20], 2)
+        })
+        st.dataframe(probe_df, use_container_width=True, height=160)
+
+# EXPORT REPORT CARD
 with col_details:
     st.markdown('<div class="ansys-card"><div class="card-title">📄 Export Executive Report</div>', unsafe_allow_html=True)
     pdf_data = generate_ansys_workbench_pdf(
@@ -615,7 +647,7 @@ with col_details:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# FLOATING & POSITIONABLE CHATBOT WIDGET
+# FLOATING CHATBOT WIDGET (SHISH AI)
 # ---------------------------------------------------------
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False

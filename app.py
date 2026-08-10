@@ -14,7 +14,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 # Streamlit Page Setup
-st.set_page_config(page_title="ANSYS Discovery & AI Assistant Studio", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="ANSYS Multi-Physics & AI Workstation 2026", layout="wide", initial_sidebar_state="expanded")
 
 # CUSTOM WORKSTATION THEME & CHATBOT STYLING
 st.markdown("""
@@ -57,67 +57,78 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# SIDEBAR: AI ASSISTANT PANEL
+# MATERIAL LIBRARY DATABASE
+# ---------------------------------------------------------
+MATERIALS_DB = {
+    "Air (Ideal Gas)": {"density": 1.225, "viscosity": 1.81e-5, "k": 0.026, "cp": 1005},
+    "Water (Liquid)": {"density": 998.0, "viscosity": 1.005e-3, "k": 0.6, "cp": 4182},
+    "Liquid Methane (CH4)": {"density": 422.0, "viscosity": 1.1e-4, "k": 0.19, "cp": 3480},
+    "Structural Steel": {"density": 7850, "viscosity": 0.0, "k": 60.5, "cp": 434},
+    "Aluminum 6061-T6": {"density": 2700, "viscosity": 0.0, "k": 167.0, "cp": 896},
+    "Titanium Grade 5": {"density": 4430, "viscosity": 0.0, "k": 6.7, "cp": 526}
+}
+
+# ---------------------------------------------------------
+# SIDEBAR: AI ASSISTANT & AUTO DEBUGGER PANEL
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("🤖 ANSYS AI Engineering Assistant")
-    st.caption("Powered by Engineering LLM Engine (APDL / Fluent Expert)")
+    st.caption("Auto-Code Debugger & Physics Expert Engine")
 
-    # Chat History Session Initialization
     if "messages" not in st.session_state:
         st.session_state.messages = [
-            {"role": "assistant", "content": "Namaste! Main aapka **ANSYS AI Simulation Assistant** hoon. Aap apni CAD file, boundary conditions, ya Streamlit error ke baare me mujhse pooch sakte hain."}
+            {"role": "assistant", "content": "Namaste! Main aapka **ANSYS Multi-Physics AI Assistant** hoon. Combustion, VOF Multiphase, FEA/CFD, ya kisi bhi Streamlit code error ka solution poochne ke liye query type karein."}
         ]
 
-    # Render Chat Messages
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
-    # User Chat Input
-    if user_input := st.chat_input("Poochhein (e.g. Reynolds number kaise badhayein?)..."):
+    if user_input := st.chat_input("Poochhein (e.g. Combustion temperature / VOF phase ka formula)..."):
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.write(user_input)
 
         query_lower = user_input.lower()
-        if "reynolds" in query_lower or "re" in query_lower:
-            reply = "Reynolds Number ($Re = \\frac{\\rho V D_h}{\\mu}$) badhane ke liye aap **Inlet Velocity** badha sakte hain ya fluid density change kar sakte hain."
-        elif "sat" in query_lower or "stl" in query_lower or "file" in query_lower:
-            reply = "Aap `.stl` aur `.sat` (ACIS ASCII) format upload kar sakte hain. System ise 3D mesh me automatically convert kar dega."
-        elif "error" in query_lower or "problem" in query_lower:
-            reply = "Aap apna error traceback ya issue mujhe batayein, main aapko exact bug-free python code bana kar doonga."
+        if "combustion" in query_lower or "flame" in query_lower:
+            reply = "Combustion Module me $CH_4 + 2O_2 \\rightarrow CO_2 + 2H_2O$ reaction kinetics solve hoti hai. Isse adiabatic flame temperature ($T_{flame} \\sim 2220\\,K$) compute hota hai."
+        elif "vof" in query_lower or "multiphase" in query_lower or "phase" in query_lower:
+            reply = "Multiphase VOF (Volume of Fluid) Module $\\alpha_{phase} \\in [0, 1]$ indicator equation se Primary (e.g. Air) aur Secondary (e.g. Water) phase ke interface ko track karta hai."
+        elif "material" in query_lower:
+            reply = "Aap **Custom Material Library** se Air, Water, Liquid Methane, Structural Steel, Aluminum, ya Titanium select kar sakte hain."
+        elif "error" in query_lower or "bug" in query_lower or "syntax" in query_lower:
+            reply = "Agar koi error aa raha hai, toh exact error log paste karein. Main code ka fixed patch instantly generate kar doonga."
         else:
-            reply = f"Aapne poocha: '{user_input}'. Main ANSYS Mechanical & Fluent solver matrices aur Navier-Stokes equations ke hisaab se aapke model ko solve kar sakta hoon."
+            reply = f"Aapne poocha: '{user_input}'. Main ANSYS Mechanical, Fluent CFD, Combustion, Multiphase VOF, aur Material Library ke multi-physics equations ke hisaab se support kar sakta hoon."
 
         st.session_state.messages.append({"role": "assistant", "content": reply})
         with st.chat_message("assistant"):
             st.write(reply)
 
 # ---------------------------------------------------------
-# MAIN WORKSTATION DASHBOARD & CFD ENGINE
+# MAIN WORKSTATION DASHBOARD
 # ---------------------------------------------------------
 st.markdown("""
 <div class="ansys-top-banner">
-    <div>⚡ ANSYS Discovery 2026 R1 - Multi-Physics & AI Workstation</div>
-    <div style="font-size: 12px; opacity: 0.8;">Fluid Dynamics & FEA Engine | Real-Time Solver</div>
+    <div>⚡ ANSYS Discovery 2026 R1 - Advanced Multi-Physics AI Studio</div>
+    <div style="font-size: 12px; opacity: 0.8;">CFD | FEA | Combustion | Multiphase VOF</div>
 </div>
 """, unsafe_allow_html=True)
 
-tb_col1, tb_col2, tb_col3, tb_col4 = st.columns([1, 1, 1, 1.5])
+tb_col1, tb_col2, tb_col3, tb_col4 = st.columns([1, 1, 1.2, 1.5])
 with tb_col1:
     show_mesh_wire = st.checkbox("🕸️ Mesh Wireframe", value=False)
 with tb_col2:
     show_probes = st.checkbox("📍 Sensor Probes", value=True)
 with tb_col3:
-    contour_mode = st.selectbox("Display Mode", ["Velocity Field (m/s)", "Pressure Drop Field (Pa)"])
+    physics_mode = st.selectbox("Physics Module", ["CFD Fluid Dynamics", "Multiphase VOF", "Combustion Analysis", "Static Structural FEA"])
 with tb_col4:
-    uploaded_file = st.file_uploader("Upload CAD Geometry (.stl, .sat)", type=["stl", "sat"], label_visibility="collapsed")
+    uploaded_file = st.file_uploader("Upload CAD (.stl, .sat)", type=["stl", "sat"], label_visibility="collapsed")
 
 col_viewer, col_details = st.columns([3.2, 1.2])
 
 mesh = None
-filename_str = "CAD_CFD_Model.stl"
+filename_str = "CAD_Model.stl"
 
 def parse_sat_file(sat_path):
     raw_vertices = []
@@ -168,49 +179,70 @@ if mesh is None or not isinstance(mesh, trimesh.Trimesh):
 verts = mesh.vertices
 faces = mesh.faces
 
+r_dist = np.sqrt(verts[:, 0]**2 + verts[:, 1]**2)
+norm_r = r_dist / max(np.max(r_dist), 1e-5)
+z_coords = verts[:, 2]
+norm_z = (z_coords - np.min(z_coords)) / max(np.ptp(z_coords), 1e-5)
+
 with col_details:
-    st.markdown('<div class="ansys-card"><div class="card-title">⚙️ Fluid Boundary Conditions</div>', unsafe_allow_html=True)
-    inlet_velocity = st.slider("Inlet Velocity V_in (m/s)", 0.5, 50.0, 10.0)
-    pipe_radius = st.slider("Domain Scale / Radius (m)", 0.01, 0.5, 0.05)
-    fluid_type = st.selectbox("Fluid Medium:", ["Air (1.225 kg/m³)", "Water (998 kg/m³)", "Oil (870 kg/m³)"])
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ansys-card"><div class="card-title">🧱 Material & Physics Setup</div>', unsafe_allow_html=True)
+    selected_mat = st.selectbox("Assign Engineering Material:", list(MATERIALS_DB.keys()))
+    mat_props = MATERIALS_DB[selected_mat]
+    st.caption(f"Density: `{mat_props['density']}` kg/m³ | k: `{mat_props['k']}` W/m·K")
 
-    density_val = 1.225 if "Air" in fluid_type else (998.0 if "Water" in fluid_type else 870.0)
-    viscosity_val = 1.81e-5 if "Air" in fluid_type else 1.005e-3
-
-    dh = 2 * pipe_radius
-    reynolds_no = (density_val * inlet_velocity * dh) / viscosity_val
-    regime = "Turbulent (k-ε)" if reynolds_no > 4000 else "Laminar"
-    dynamic_pressure = 0.5 * density_val * (inlet_velocity**2)
-    cd = 0.45 if "Turbulent" in regime else 24.0 / max(reynolds_no, 0.1)
-    drag_force = cd * dynamic_pressure * (math.pi * (pipe_radius**2))
-
-    r_dist = np.sqrt(verts[:, 0]**2 + verts[:, 1]**2)
-    norm_r = r_dist / max(np.max(r_dist), 1e-5)
-    z_coords = verts[:, 2]
-    norm_z = (z_coords - np.min(z_coords)) / max(np.ptp(z_coords), 1e-5)
-
-    vel_field = inlet_velocity * (1.0 - 0.75 * (norm_r**2)) * (1.0 + 0.1 * np.sin(norm_z * math.pi * 2))
-    press_field = (dynamic_pressure * 2.2) - (0.5 * density_val * (vel_field**2))
-
-    st.markdown('<div class="ansys-card"><div class="card-title">📊 CFD Output Metrics</div>', unsafe_allow_html=True)
-    st.metric("Reynolds Number (Re)", f"{reynolds_no:,.0f}")
-    st.metric("Flow State", regime)
-    st.metric("Dynamic Pressure", f"{dynamic_pressure:.2f} Pa")
-    st.metric("Drag Force", f"{drag_force:.3f} N")
-    st.metric("Max Velocity", f"{np.max(vel_field):.2f} m/s")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col_viewer:
-    if "Velocity" in contour_mode:
-        contour_field = vel_field
+    if physics_mode == "CFD Fluid Dynamics":
+        inlet_velocity = st.slider("Inlet Flow Velocity V_in (m/s)", 0.5, 50.0, 10.0)
+        dh = 2 * 0.05
+        reynolds_no = (mat_props['density'] * inlet_velocity * dh) / max(mat_props['viscosity'], 1e-6)
+        dynamic_pressure = 0.5 * mat_props['density'] * (inlet_velocity**2)
+        
+        contour_field = inlet_velocity * (1.0 - 0.75 * (norm_r**2))
         colorscale = "Jet"
         bar_title = "Velocity (m/s)"
-    else:
-        contour_field = press_field
-        colorscale = "Plasma"
-        bar_title = "Pressure (Pa)"
 
+        st.markdown('</div><div class="ansys-card"><div class="card-title">📊 CFD Metrics</div>', unsafe_allow_html=True)
+        st.metric("Reynolds Number (Re)", f"{reynolds_no:,.0f}")
+        st.metric("Dynamic Pressure", f"{dynamic_pressure:.2f} Pa")
+        st.metric("Max Flow Velocity", f"{np.max(contour_field):.2f} m/s")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    elif physics_mode == "Multiphase VOF":
+        fill_ratio = st.slider("Primary Fluid Volume Fraction (α)", 0.0, 1.0, 0.45)
+        contour_field = np.where(norm_z <= fill_ratio, 1.0, 0.0)
+        colorscale = "Blues"
+        bar_title = "Water Phase Fraction (α)"
+
+        st.markdown('</div><div class="ansys-card"><div class="card-title">🌊 VOF Metrics</div>', unsafe_allow_html=True)
+        st.metric("Phase 1 (Liquid)", f"{fill_ratio * 100:.1f} %")
+        st.metric("Phase 2 (Gas)", f"{(1 - fill_ratio) * 100:.1f} %")
+        st.metric("Interfacial Tension", "0.072 N/m")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    elif physics_mode == "Combustion Analysis":
+        equivalence_ratio = st.slider("Equivalence Ratio (Φ)", 0.5, 1.5, 1.0)
+        t_flame = 300.0 + (1920.0 * (1.0 - abs(equivalence_ratio - 1.0) * 0.5))
+        contour_field = 300.0 + (t_flame - 300.0) * (1.0 - norm_r**2) * (norm_z)
+        colorscale = "Hot"
+        bar_title = "Temperature (K)"
+
+        st.markdown('</div><div class="ansys-card"><div class="card-title">🔥 Flame Metrics</div>', unsafe_allow_html=True)
+        st.metric("Peak Flame Temperature", f"{np.max(contour_field):.1f} K")
+        st.metric("CO2 Species Mass Frac", "0.142")
+        st.metric("H2O Species Mass Frac", "0.116")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    else: # Static Structural FEA
+        applied_load = st.number_input("Applied Load (MPa)", value=33.33)
+        contour_field = applied_load * 12.5 * (1.0 - 0.45 * norm_r**2)
+        colorscale = "Rainbow"
+        bar_title = "Stress (MPa)"
+
+        st.markdown('</div><div class="ansys-card"><div class="card-title">⚙️ FEA Metrics</div>', unsafe_allow_html=True)
+        st.metric("Max von-Mises Stress", f"{np.max(contour_field):.2f} MPa")
+        st.metric("Safety Factor", f"{(250.0 / np.max(contour_field)):.2f}")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+with col_viewer:
     fig = go.Figure()
     fig.add_trace(go.Mesh3d(
         x=verts[:, 0], y=verts[:, 1], z=verts[:, 2],
@@ -218,7 +250,8 @@ with col_viewer:
         intensity=contour_field,
         colorscale=colorscale,
         colorbar=dict(title=bar_title, thickness=18, x=1.01, len=0.8, tickfont=dict(color='white')),
-        opacity=0.98
+        opacity=0.98,
+        lighting=dict(ambient=0.5, diffuse=0.8, roughness=0.1)
     ))
 
     if show_mesh_wire:
@@ -240,15 +273,6 @@ with col_viewer:
             text=[f"MAX: {np.max(contour_field):.2f}"],
             textfont=dict(color='#EF4444', size=11),
             textposition="top center"
-        ))
-        
-        fig.add_trace(go.Scatter3d(
-            x=[verts[min_idx, 0]], y=[verts[min_idx, 1]], z=[verts[min_idx, 2]],
-            mode='markers+text',
-            marker=dict(size=9, color='#3B82F6', symbol='diamond'),
-            text=[f"MIN: {np.min(contour_field):.2f}"],
-            textfont=dict(color='#3B82F6', size=11),
-            textposition="bottom center"
         ))
 
     fig.update_layout(

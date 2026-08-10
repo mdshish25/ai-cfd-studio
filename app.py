@@ -13,6 +13,18 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
+# Google Gemini SDK Import Handling
+HAS_GENAI = False
+try:
+    import google.generativeai as genai
+    HAS_GENAI = True
+except ImportError:
+    try:
+        from google import genai
+        HAS_GENAI = True
+    except ImportError:
+        HAS_GENAI = False
+
 # Streamlit Page Setup
 st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="expanded")
 
@@ -55,6 +67,24 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# GEMINI API INITIALIZATION FOR SHISH AI ENGINE
+# ---------------------------------------------------------
+api_key = st.secrets.get("GEMINI_API_KEY", None)
+model_ai = None
+
+if api_key and HAS_GENAI:
+    try:
+        genai.configure(api_key=api_key)
+        sys_instruct = (
+            "You are 'shish', an expert AI assistant specializing in Mechanical Engineering, "
+            "FEA, CFD, Mathematics, Physics, and Python code debugging. Answer all general questions, "
+            "math calculations, and engineering queries accurately and naturally in Hinglish or English."
+        )
+        model_ai = genai.GenerativeModel("gemini-1.5-flash", system_instruction=sys_instruct)
+    except Exception as e:
+        model_ai = None
 
 # ---------------------------------------------------------
 # MATERIAL LIBRARY DATABASE
@@ -174,11 +204,17 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("🤖 shish - AI Engineering Assistant")
-    st.caption("Powered by shish Engineering LLM (APDL / Fluent Expert)")
+    st.caption("Powered by Gemini Engine")
+
+    # API Key Connection Status Banner
+    if api_key and model_ai:
+        st.success("🟢 Gemini API Connected")
+    else:
+        st.error("🔴 API Key Not Connected / Configured")
 
     if "messages" not in st.session_state:
         st.session_state.messages = [
-            {"role": "assistant", "content": "Namaste! Main **shish** hoon, aapka Personal AI Simulation Assistant. Aap combustion, VOF multiphase, FEA/CFD, ya Streamlit error ke baare me mujhse pooch sakte hain."}
+            {"role": "assistant", "content": "Namaste! Main **shish** hoon, aapka Personal AI Simulation Assistant. Aap koi bhi question, math problem, ya engineering query pooch sakte hain."}
         ]
 
     for msg in st.session_state.messages:
@@ -190,17 +226,24 @@ with st.sidebar:
         with st.chat_message("user"):
             st.write(user_input)
 
-        query_lower = user_input.lower()
-        if "combustion" in query_lower or "flame" in query_lower:
-            reply = "Combustion Module me $CH_4 + 2O_2 \\rightarrow CO_2 + 2H_2O$ reaction kinetics solve hoti hai. Isse adiabatic flame temperature ($T_{flame} \\sim 2220\\,K$) compute hota hai."
-        elif "vof" in query_lower or "multiphase" in query_lower or "phase" in query_lower:
-            reply = "Multiphase VOF (Volume of Fluid) Module $\\alpha_{phase} \\in [0, 1]$ indicator equation se Primary (e.g. Air) aur Secondary (e.g. Water) phase ke interface ko track karta hai."
-        elif "material" in query_lower:
-            reply = "Aap **Custom Material Library** se Air, Water, Liquid Methane, Structural Steel, Aluminum, ya Titanium select kar sakte hain."
-        elif "error" in query_lower or "bug" in query_lower or "syntax" in query_lower:
-            reply = "Agar koi error aa raha hai, toh exact error log paste karein. Main code ka fixed patch instantly generate kar doonga."
+        reply = ""
+        if model_ai:
+            try:
+                res = model_ai.generate_content(user_input)
+                reply = res.text
+            except Exception as ex:
+                reply = f"API Execution Error: {str(ex)}"
         else:
-            reply = f"Aapne poocha: '{user_input}'. Main **shish**, ANSYS Mechanical, Fluent CFD, Combustion, Multiphase VOF, aur Material Library ke multi-physics equations ke hisaab se support kar sakta hoon."
+            # Basic Arithmetic & Query Fallback System
+            try:
+                clean_expr = user_input.replace("=", "").replace("kya hota hai", "").strip()
+                if re.match(r"^[\d\+\-\*\/\.\s\(\)]+$", clean_expr):
+                    calc_res = eval(clean_expr)
+                    reply = f"**{user_input}** = `{calc_res}`"
+                else:
+                    reply = f"Main **shish** hoon! Gemini AI activation ke liye `GEMINI_API_KEY` ko Streamlit Secrets me `GEMINI_API_KEY = 'your_key'` ke format me save karein."
+            except Exception:
+                reply = "Main **shish** hoon! Please Streamlit Secrets me `GEMINI_API_KEY` verify karein."
 
         st.session_state.messages.append({"role": "assistant", "content": reply})
         with st.chat_message("assistant"):

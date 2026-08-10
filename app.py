@@ -18,7 +18,7 @@ from reportlab.lib import colors
 # Streamlit Page Setup
 st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="collapsed")
 
-# CUSTOM WORKSTATION THEME & WHATSAPP-STYLE FLOATING POP-UP CHATBOT STYLING
+# CUSTOM WORKSTATION THEME & CLEAN CHAT INPUT STYLING
 st.markdown("""
 <style>
     .stApp {
@@ -90,13 +90,24 @@ st.markdown("""
         background-color: #E5DDD5 !important; /* WhatsApp Chat Background */
         border: 2px solid #CBD5E1 !important;
         border-radius: 16px !important;
-        padding: 18px !important;
+        padding: 18px 18px 12px 18px !important;
         box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4) !important;
         color: #0F172A !important;
+        overflow: hidden !important;
+    }
+
+    /* REMOVE EXTRA BOTTOM SPACE / LINE UNDER INPUT BOX */
+    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div[data-testid="stBottom"] {
+        padding-bottom: 0px !important;
+        margin-bottom: 0px !important;
+    }
+
+    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div[data-testid="stChatInput"] {
+        margin-bottom: 0px !important;
+        padding-bottom: 0px !important;
     }
 
     /* WHATSAPP BUBBLES ALIGNMENT & COLORS */
-    /* USER MESSAGE (RIGHT ALIGNED - WHATSAPP GREEN) */
     div[data-testid="stChatMessage"]:has(div[aria-label="Chat message from user"]) {
         background-color: #DCF8C6 !important;
         margin-left: auto !important;
@@ -106,7 +117,6 @@ st.markdown("""
         border: 1px solid #C4E8B0 !important;
     }
 
-    /* ASSISTANT MESSAGE (LEFT ALIGNED - WHITE BUBBLE) */
     div[data-testid="stChatMessage"]:has(div[aria-label="Chat message from assistant"]) {
         background-color: #FFFFFF !important;
         margin-left: 0px !important;

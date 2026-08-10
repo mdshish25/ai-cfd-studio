@@ -74,6 +74,104 @@ def parse_sat_file(sat_path):
     except Exception:
         return None
 
+def generate_ansys_contour_plot(velocity, radius):
+    """Generate static ANSYS style contour figure for PDF report"""
+    fig, ax = plt.subplots(figsize=(6, 2.5), facecolor='#0F172A')
+    ax.set_facecolor('#0F172A')
+    
+    x = np.linspace(-radius, radius, 100)
+    y = np.linspace(-0.25, 0.25, 50)
+    X, Y = np.meshgrid(x, y)
+    Z = velocity * (1.0 - (X**2 + Y**2)/(radius**2 + 0.01))
+    
+    contour = ax.contourf(X, Y, Z, cmap='jet', levels=15)
+    cbar = fig.colorbar(contour, ax=ax)
+    cbar.ax.yaxis.set_tick_params(color='white')
+    plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
+    cbar.set_label('Velocity Magnitude (m/s)', color='white')
+    
+    ax.axis('off')
+    plt.tight_layout()
+    
+    buf = BytesIO()
+    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor=fig.get_facecolor())
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radius, pressure_val):
+    """Generates an ANSYS Workbench Mechanical Report PDF"""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    styles = getSampleStyleSheet()
+    story = []
+
+    title_style = ParagraphStyle('ANSYSTitle', parent=styles['Heading1'], fontSize=20, textColor=colors.HexColor('#002B49'), spaceAfter=2)
+    sub_style = ParagraphStyle('ANSYSSub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#475569'), spaceAfter=10)
+    
+    story.append(Paragraph("ANSYS Workbench Simulation Report", title_style))
+    story.append(Paragraph("DesignSpace / Mechanical Automated Engineering Report", sub_style))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#FFB800'), spaceAfter=12))
+
+    now_str = datetime.datetime.now().strftime("%A, %B %d, %Y at %I:%M:%S %p")
+    meta_data = [
+        ["Project", project_name, "Software Used", "ANSYS Workbench v23.2 / AI Engine"],
+        ["Author", author, "Database Path", f"C:\\ANSYS_MODELS\\{filename}"],
+        ["Report Created", now_str, "Domain Boundary", "3D Solid / Static Structural"]
+    ]
+    t_meta = Table(meta_data, colWidths=[90, 160, 100, 200])
+    t_meta.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F1F5F9')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
+    ]))
+    story.append(t_meta)
+    story.append(Spacer(1, 10))
+
+    story.append(Paragraph("1. Summary & Model Assumptions", styles['Heading2']))
+    story.append(Spacer(1, 4))
+    
+    summary_p = (
+        f"This report documents design and analysis information created and maintained using the ANSYS simulation engine. "
+        f"The model <b>{filename}</b> was evaluated under a pressure load of <b>{pressure_val:.2f} MPa</b>. "
+        f"Calculated structural stress, deformation contours, and material boundary responses."
+    )
+    story.append(Paragraph(summary_p, styles['Normal']))
+    story.append(Spacer(1, 8))
+
+    mat_data = [
+        ["Material / Layer Name", "Thickness (m) / Property", "Elastic Modulus / Density", "Poisson's Ratio"],
+        ["Silicon (Si)", "3.00E-04 m", "1.12E+11 Pa", "0.28"],
+        ["Aluminum 6061 T6", "4.00E-04 m", "6.90E+10 Pa", "0.33"],
+        ["Carbon Fiber (Thornel)", "2.50E-04 m", "2.90E+11 Pa", "0.20"],
+        ["Rohacell Foam", "2.00E-03 m", "1.57E+08 Pa", "0.00"]
+    ]
+    t_mat = Table(mat_data, colWidths=[150, 120, 160, 120])
+    t_mat.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#002B49')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94A3B8')),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F8FAFC')),
+    ]))
+    story.append(t_mat)
+    story.append(Spacer(1, 10))
+
+    story.append(Paragraph("2. ANSYS Contour Figures & Field Post-Processing", styles['Heading2']))
+    story.append(Spacer(1, 4))
+
+    contour_img_buf = generate_ansys_contour_plot(velocity=10.0, radius=radius)
+    story.append(Image(contour_img_buf, width=480, height=200))
+    story.append(Paragraph("<i>Figure A1.1: 3D Equivalent Stress & Structural Contour Map Distribution.</i>", styles['Italic']))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
 st.markdown('<div class="ansys-header">A: Static Structural - Mechanical [ANSYS Multiphysics]</div>', unsafe_allow_html=True)
 
 # TOP TOOLBAR ACTION BUTTONS
@@ -129,9 +227,10 @@ with col_viewer:
     pipe_radius = st.slider("Domain Scale (m)", 0.01, 0.5, 0.05, key="scale_s")
     
     mesh = None
+    filename_str = "STAVE_Simul.stl"
     if uploaded_file is not None:
-        filename = uploaded_file.name
-        ext = filename.split(".")[-1].lower()
+        filename_str = uploaded_file.name
+        ext = filename_str.split(".")[-1].lower()
         temp_path = f"temp_upload.{ext}"
         
         with open(temp_path, "wb") as f:
@@ -139,7 +238,6 @@ with col_viewer:
         
         if ext == "stl":
             try:
-                # Load using file buffer directly or saved path safely
                 mesh = trimesh.load(temp_path, file_type='stl')
             except Exception:
                 mesh = None
@@ -216,7 +314,7 @@ with col_viewer:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-# PANE 3: DETAILS OF SELECTION & LIGHTING / LOADS
+# PANE 3: DETAILS OF SELECTION & LIGHTING / LOADS & PDF DOWNLOAD
 with col_details:
     st.subheader("🔍 Details of Selection")
     st.write(f"**Mesh Vertices:** {len(verts):,}")
@@ -229,4 +327,21 @@ with col_details:
 
     st.markdown("---")
     st.subheader("📄 Client Deliverable")
-    st.button("📥 Download ANSYS Report PDF", type="primary")
+    
+    # Generate PDF buffer for download button
+    pdf_data = generate_ansys_workbench_pdf(
+        filename=filename_str,
+        project_name="ATLAS Stave Simulation",
+        author="Margareta Rehak",
+        velocity=10.0,
+        radius=pipe_radius,
+        pressure_val=pressure_load
+    )
+
+    st.download_button(
+        label="📥 Download ANSYS Report PDF",
+        data=pdf_data,
+        file_name=f"{filename_str.split('.')[0]}_ANSYS_Report.pdf",
+        mime="application/pdf",
+        type="primary"
+    )

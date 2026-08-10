@@ -20,7 +20,7 @@ st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="w
 
 # INITIALIZE POSITION STATE
 if "chat_pos" not in st.session_state:
-    st.session_state.chat_pos = "Bottom-Left"
+    st.session_state.chat_pos = "Bottom-Right"
 
 # POSITION CSS MAPPING
 pos_css = {
@@ -29,47 +29,56 @@ pos_css = {
     "Top-Left": "top: 25px !important; left: 25px !important;",
     "Top-Right": "top: 25px !important; right: 25px !important;"
 }
-current_pos_css = pos_css.get(st.session_state.chat_pos, pos_css["Bottom-Left"])
+current_pos_css = pos_css.get(st.session_state.chat_pos, pos_css["Bottom-Right"])
 
-# CUSTOM WORKSTATION THEME & ATTRACTIVE FLOATING BUTTON STYLING
+# PREMIUM WORKSTATION THEME & ATTRACTIVE FLOATING WIDGET STYLING
 st.markdown(f"""
 <style>
+    /* MAIN BACKGROUND */
     .stApp {{
-        background-color: #0F172A;
+        background-color: #0B1120;
         color: #F8FAFC;
-        font-family: 'Segoe UI', Inter, sans-serif;
+        font-family: 'Inter', 'Segoe UI', sans-serif;
     }}
+    
+    /* ANSYS PROFESSIONAL BANNER */
     .ansys-top-banner {{
-        background: linear-gradient(90deg, #0284C7, #0F172A);
+        background: linear-gradient(135deg, #0284C7 0%, #0F172A 100%);
         color: #FFFFFF;
-        padding: 10px 20px;
+        padding: 12px 24px;
         font-weight: 700;
-        font-size: 16px;
-        letter-spacing: 0.5px;
+        font-size: 18px;
+        letter-spacing: 0.8px;
         border-bottom: 2px solid #38BDF8;
-        border-radius: 4px;
-        margin-bottom: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(2, 132, 199, 0.25);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }}
+
+    /* GLASS CARDS */
     .ansys-card {{
         background-color: #1E293B;
         border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 18px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
     }}
     .card-title {{
         color: #38BDF8;
-        font-size: 14px;
-        font-weight: 600;
+        font-size: 13px;
+        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.8px;
-        margin-bottom: 12px;
+        letter-spacing: 1px;
+        margin-bottom: 14px;
         border-bottom: 1px solid #334155;
-        padding-bottom: 6px;
+        padding-bottom: 8px;
     }}
 
-    /* ATTRACTIVE BIG FLOATING AI BUTTON */
+    /* FLOATING AI TRIGGER BUTTON */
     div.floating-ai-btn-container {{
         position: fixed !important;
         {current_pos_css}
@@ -81,39 +90,39 @@ st.markdown(f"""
         color: #FFFFFF !important;
         border: 2px solid #38BDF8 !important;
         border-radius: 30px !important;
-        padding: 16px 32px !important;
+        padding: 14px 28px !important;
         font-weight: 800 !important;
-        font-size: 18px !important;
+        font-size: 16px !important;
         letter-spacing: 0.5px !important;
-        box-shadow: 0 10px 25px rgba(2, 132, 199, 0.5), 0 0 15px rgba(56, 189, 248, 0.4) !important;
+        box-shadow: 0 10px 25px rgba(2, 132, 199, 0.6), 0 0 15px rgba(56, 189, 248, 0.5) !important;
         cursor: pointer !important;
         transition: all 0.3s ease-in-out !important;
     }}
 
     div.floating-ai-btn-container button:hover {{
         background: linear-gradient(135deg, #0369A1 0%, #1D4ED8 100%) !important;
-        transform: translateY(-3px) scale(1.03) !important;
-        box-shadow: 0 14px 30px rgba(2, 132, 199, 0.7), 0 0 20px rgba(56, 189, 248, 0.6) !important;
+        transform: translateY(-3px) scale(1.04) !important;
+        box-shadow: 0 14px 30px rgba(2, 132, 199, 0.8), 0 0 22px rgba(56, 189, 248, 0.7) !important;
     }}
     
-    /* WHATSAPP STYLE MOVEABLE CHAT CONTAINER */
+    /* WHATSAPP-STYLE CHAT CONTAINER */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) {{
         position: fixed !important;
         {current_pos_css}
         z-index: 999999 !important;
-        width: 480px !important;
-        max-width: 90vw !important;
+        width: 440px !important;
+        max-width: 92vw !important;
         background-color: #E5DDD5 !important;
-        border: 2px solid #CBD5E1 !important;
-        border-radius: 16px !important;
+        border: 2px solid #94A3B8 !important;
+        border-radius: 18px !important;
         padding: 16px !important;
-        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4) !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6) !important;
         color: #0F172A !important;
         resize: both !important;
         overflow: auto !important;
     }}
 
-    /* REMOVE EXTRA BOTTOM SPACE UNDER INPUT BOX */
+    /* CLEAN INPUT AREA */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div[data-testid="stBottom"] {{
         padding-bottom: 0px !important;
         margin-bottom: 0px !important;
@@ -124,13 +133,13 @@ st.markdown(f"""
         padding-bottom: 0px !important;
     }}
 
-    /* WHATSAPP BUBBLES ALIGNMENT & COLORS */
+    /* WHATSAPP BUBBLES */
     div[data-testid="stChatMessage"]:has(div[aria-label="Chat message from user"]) {{
         background-color: #DCF8C6 !important;
         margin-left: auto !important;
         margin-right: 0px !important;
         border-radius: 12px 0px 12px 12px !important;
-        max-width: 80% !important;
+        max-width: 82% !important;
         border: 1px solid #C4E8B0 !important;
     }}
 
@@ -143,14 +152,13 @@ st.markdown(f"""
         border: 1px solid #E2E8F0 !important;
     }}
 
-    /* TEXT INSIDE BUBBLES */
     div[data-testid="stChatMessage"] p,
     div[data-testid="stChatMessage"] span,
     div[data-testid="stChatMessage"] li,
     div[data-testid="stChatMessage"] div {{
         color: #111B21 !important;
         font-weight: 600 !important;
-        font-size: 15px !important;
+        font-size: 14px !important;
         line-height: 1.5 !important;
     }}
 </style>
@@ -330,8 +338,8 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
 # MAIN WORKSTATION DASHBOARD
 st.markdown("""
 <div class="ansys-top-banner">
-    <div>⚡ ANSYS Discovery 2026 R1 - Multi-Physics Studio (shish AI Inside)</div>
-    <div style="font-size: 12px; opacity: 0.8;">CFD | FEA | Combustion | Multiphase VOF</div>
+    <div>⚡ ANSYS Discovery 2026 R1 - Multi-Physics Workstation Studio</div>
+    <div style="font-size: 13px; opacity: 0.9;">CFD | Static Structural FEA | Combustion | Multiphase VOF</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -502,7 +510,7 @@ with col_viewer:
             zaxis=dict(title='Z (m)', backgroundcolor="#0F172A", gridcolor="#334155", showbackground=True),
             aspectmode='data'
         ),
-        height=620,
+        height=680,
         margin=dict(l=0, r=0, b=0, t=0),
         paper_bgcolor="#1E293B"
     )
@@ -553,7 +561,7 @@ if st.session_state.chat_open:
         with head_col1:
             st.markdown("<h2 style='color:#0F172A; margin:0; font-size:20px; font-weight:800;'>🤖 shish AI</h2>", unsafe_allow_html=True)
         with head_col2:
-            new_pos = st.selectbox("Position", ["Bottom-Left", "Bottom-Right", "Top-Left", "Top-Right"], index=["Bottom-Left", "Bottom-Right", "Top-Left", "Top-Right"].index(st.session_state.chat_pos), label_visibility="collapsed", key="pos_select")
+            new_pos = st.selectbox("Position", ["Bottom-Right", "Bottom-Left", "Top-Left", "Top-Right"], index=["Bottom-Right", "Bottom-Left", "Top-Left", "Top-Right"].index(st.session_state.chat_pos), label_visibility="collapsed", key="pos_select")
             if new_pos != st.session_state.chat_pos:
                 st.session_state.chat_pos = new_pos
                 st.rerun()

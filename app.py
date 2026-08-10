@@ -58,61 +58,59 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# DIRECT REST API FUNCTION FOR GUARANTEED RESPONSE
+# DIRECT GEMINI REST API WITH AI PERSONALITY ENGINE
 api_key = st.secrets.get("GEMINI_API_KEY", None)
 
 def query_gemini_direct(prompt_text, key):
     """
-    Direct REST HTTP Request with Quota / Rate Limit Handling.
+    Queries Gemini REST API configured to act exactly like an all-round intelligent AI.
+    Handles math, logic, coding, and general questions seamlessly.
     """
-    if not key:
-        return "Error: API Key missing in Streamlit Secrets."
-
-    # Active free-tier friendly models order
-    models_to_try = ["gemini-1.5-flash", "gemini-1.5-pro"]
-    
-    system_prompt = (
-        "You are shish, an expert engineering AI assistant and problem solver. "
-        "Answer the user's question accurately, directly, and naturally in Hinglish or English: "
-    )
-    
-    headers = {"Content-Type": "application/json"}
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": system_prompt + str(prompt_text)}
-                ]
-            }
-        ]
-    }
-
-    for model_name in models_to_try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
-        try:
-            res = requests.post(url, headers=headers, data=json.dumps(payload), timeout=10)
-            if res.status_code == 200:
-                data = res.json()
-                text_out = data["candidates"][0]["content"]["parts"][0]["text"]
-                return text_out
-            elif res.status_code == 429:
-                # Quota rate limit wait message
-                continue
-            else:
-                continue
-        except Exception:
-            continue
-
-    # Automatic Math Evaluation Fallback if API is temporarily rate limited
+    # 1. Instant Math Evaluation Fallback
     try:
-        clean_expr = prompt_text.replace("=", "").replace("kya hota hai", "").strip()
+        clean_expr = prompt_text.replace("=", "").replace("?", "").replace("kya hota hai", "").strip()
         if re.match(r"^[\d\+\-\*\/\.\s\(\)]+$", clean_expr):
             calc_res = eval(clean_expr)
             return f"**{prompt_text}** = `{calc_res}`"
     except Exception:
         pass
 
-    return "⏳ **shish AI** Free Tier Rate Limit cooldown me hai. Please 15-20 seconds baad dubara try karein!"
+    if not key:
+        return "Error: API Key missing in Streamlit Secrets (`GEMINI_API_KEY`)."
+
+    headers = {"Content-Type": "application/json"}
+    system_instruction_text = (
+        "You are 'shish', an advanced, highly intelligent AI Assistant powered by LLM. "
+        "Your goal is to be friendly, grounded, exceptionally helpful, and accurate—just like Gemini. "
+        "You must answer ALL user questions across any domain: Science, Math, Engineering (ANSYS, CFD, FEA), "
+        "Python Coding, Logic, and General Knowledge. Communicate naturally in Hinglish or English."
+    )
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": f"{system_instruction_text}\n\nUser Question: {prompt_text}"}
+                ]
+            }
+        ]
+    }
+
+    models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
+
+    for model_name in models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
+        try:
+            res = requests.post(url, headers=headers, data=json.dumps(payload), timeout=12)
+            if res.status_code == 200:
+                data = res.json()
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+            elif res.status_code == 429:
+                continue
+        except Exception:
+            continue
+
+    return "⚠️ API Quota Currently Busy. Please Nayi API Key Google AI Studio ('Create API key in new project') se le kar Streamlit Secrets me update karein!"
 
 # MATERIAL LIBRARY DATABASE
 MATERIALS_DB = {
@@ -225,24 +223,24 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
 
 # SIDEBAR: SHISH AI ASSISTANT PANEL
 with st.sidebar:
-    st.header("🤖 shish - AI Engineering Assistant")
-    st.caption("Direct REST Gemini Engine")
+    st.header("🤖 shish - Universal AI Assistant")
+    st.caption("Powered by Intelligent Gemini LLM")
 
     if api_key:
-        st.success("🟢 Gemini API Active")
+        st.success("🟢 shish AI Active")
     else:
-        st.error("🔴 Check GEMINI_API_KEY in Secrets")
+        st.error("🔴 Add GEMINI_API_KEY in Streamlit Secrets")
 
     if "messages" not in st.session_state:
         st.session_state.messages = [
-            {"role": "assistant", "content": "Namaste! Main **shish** hoon. Aap math calculation, engineering formulas, ya Python error ka answer pooch sakte hain."}
+            {"role": "assistant", "content": "Namaste! Main **shish** hoon, aapka Intelligent AI Assistant. Science, Engineering, Math, Coding, ya kisi bhi general sawaal ka jawab paane ke liye poochhein!"}
         ]
 
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
-    if user_input := st.chat_input("shish se poochhein..."):
+    if user_input := st.chat_input("shish se koi bhi question poochhein..."):
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.write(user_input)

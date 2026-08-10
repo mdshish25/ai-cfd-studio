@@ -15,72 +15,90 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-# Streamlit Page Setup
-st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="collapsed")
+# ---------------------------------------------------------
+# PAGE CONFIGURATION
+# ---------------------------------------------------------
+st.set_page_config(
+    page_title="ANSYS Multi-Physics Workstation Studio",
+    page_icon="⚡",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# INITIALIZE POSITION STATE
+# INITIALIZE CHAT POSITION STATE
 if "chat_pos" not in st.session_state:
-    st.session_state.chat_pos = "Bottom-Left"
+    st.session_state.chat_pos = "Bottom-Right"
 
-# POSITION CSS MAPPING
-pos_css = {
-    "Bottom-Left": "bottom: 25px !important; left: 25px !important;",
+pos_css_map = {
     "Bottom-Right": "bottom: 25px !important; right: 25px !important;",
-    "Top-Left": "top: 25px !important; left: 25px !important;",
-    "Top-Right": "top: 25px !important; right: 25px !important;"
+    "Bottom-Left": "bottom: 25px !important; left: 25px !important;",
+    "Top-Right": "top: 25px !important; right: 25px !important;",
+    "Top-Left": "top: 25px !important; left: 25px !important;"
 }
-current_pos_css = pos_css.get(st.session_state.chat_pos, pos_css["Bottom-Left"])
+active_pos_style = pos_css_map.get(st.session_state.chat_pos, pos_css_map["Bottom-Right"])
 
-# CLEAN WHITE THEME & ULTRA-ATTRACTIVE FLOATING BUTTON STYLING
+# ---------------------------------------------------------
+# ULTRA-MODERN PROFESSIONAL ANSYS LIGHT WORKSTATION STYLING
+# ---------------------------------------------------------
 st.markdown(f"""
 <style>
-    /* MAIN LIGHT/WHITE BACKGROUND */
+    /* PAGE BACKGROUND */
     .stApp {{
         background-color: #F8FAFC !important;
         color: #0F172A !important;
-        font-family: 'Inter', 'Segoe UI', sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }}
     
-    /* ANSYS PROFESSIONAL BANNER */
-    .ansys-top-banner {{
+    /* TOP WORKSTATION BANNER */
+    .ansys-header-banner {{
         background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
         color: #FFFFFF;
-        padding: 14px 24px;
-        font-weight: 700;
-        font-size: 18px;
-        letter-spacing: 0.8px;
-        border-radius: 8px;
+        padding: 16px 28px;
+        border-radius: 12px;
         margin-bottom: 20px;
-        box-shadow: 0 4px 15px rgba(2, 132, 199, 0.2);
+        box-shadow: 0 8px 20px rgba(2, 132, 199, 0.15);
         display: flex;
         justify-content: space-between;
         align-items: center;
     }}
+    
+    .banner-title {{
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+    }}
+    
+    .banner-sub {{
+        font-size: 13px;
+        opacity: 0.9;
+        font-weight: 500;
+    }}
 
-    /* WHITE CARDS STYLING */
+    /* WORKSTATION CARDS */
     .ansys-card {{
         background-color: #FFFFFF !important;
         border: 1px solid #E2E8F0 !important;
-        border-radius: 12px !important;
-        padding: 18px !important;
-        margin-bottom: 18px !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+        border-radius: 14px !important;
+        padding: 20px !important;
+        margin-bottom: 20px !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04) !important;
     }}
+    
     .card-title {{
         color: #0284C7 !important;
         font-size: 13px !important;
-        font-weight: 700 !important;
+        font-weight: 800 !important;
         text-transform: uppercase !important;
-        letter-spacing: 1px !important;
-        margin-bottom: 14px !important;
+        letter-spacing: 1.2px !important;
+        margin-bottom: 16px !important;
         border-bottom: 2px solid #F1F5F9 !important;
         padding-bottom: 8px !important;
     }}
 
-    /* ULTRA-ATTRACTIVE & BOLDER FLOATING AI BUTTON */
+    /* ATTRACTIVE FLOATING SHISH AI TRIGGER BUTTON */
     div.floating-ai-btn-container {{
         position: fixed !important;
-        {current_pos_css}
+        {active_pos_style}
         z-index: 999999 !important;
     }}
 
@@ -91,9 +109,9 @@ st.markdown(f"""
         border-radius: 35px !important;
         padding: 16px 36px !important;
         font-weight: 800 !important;
-        font-size: 19px !important;
-        letter-spacing: 0.6px !important;
-        box-shadow: 0 10px 30px rgba(2, 132, 199, 0.5), 0 0 20px rgba(56, 189, 248, 0.4) !important;
+        font-size: 18px !important;
+        letter-spacing: 0.5px !important;
+        box-shadow: 0 10px 30px rgba(2, 132, 199, 0.4), 0 0 20px rgba(56, 189, 248, 0.3) !important;
         cursor: pointer !important;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }}
@@ -101,27 +119,27 @@ st.markdown(f"""
     div.floating-ai-btn-container button:hover {{
         background: linear-gradient(135deg, #0369A1 0%, #1E293B 100%) !important;
         transform: translateY(-4px) scale(1.05) !important;
-        box-shadow: 0 16px 35px rgba(2, 132, 199, 0.7), 0 0 25px rgba(56, 189, 248, 0.6) !important;
+        box-shadow: 0 16px 35px rgba(2, 132, 199, 0.6), 0 0 25px rgba(56, 189, 248, 0.5) !important;
     }}
     
     /* WHATSAPP-STYLE CHAT CONTAINER */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) {{
         position: fixed !important;
-        {current_pos_css}
+        {active_pos_style}
         z-index: 999999 !important;
         width: 460px !important;
         max-width: 92vw !important;
         background-color: #E5DDD5 !important;
         border: 2px solid #CBD5E1 !important;
-        border-radius: 18px !important;
-        padding: 16px !important;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25) !important;
+        border-radius: 20px !important;
+        padding: 18px !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.22) !important;
         color: #0F172A !important;
         resize: both !important;
         overflow: auto !important;
     }}
 
-    /* CLEAN INPUT AREA */
+    /* INPUT CONTAINER ZERO PADDING */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div[data-testid="stBottom"] {{
         padding-bottom: 0px !important;
         margin-bottom: 0px !important;
@@ -163,16 +181,18 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# RETRIEVE API KEYS FROM STREAMLIT SECRETS
+# ---------------------------------------------------------
+# API KEYS & SHISH AI QUERY ENGINE
+# ---------------------------------------------------------
 groq_key = st.secrets.get("GROQ_API_KEY", None)
 gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 
 def query_shish_ai_permanent(prompt_text):
     """
-    PERMANENT NO-LIMIT AI ENGINE:
-    1. Instant Local Math Solver
-    2. Groq Llama-3 API (High Speed & 100% Free Rate Limit)
-    3. Gemini REST API Fallback
+    UNSTOPPABLE AI ENGINE:
+    1. Instant Math & Logic Evaluator
+    2. Primary: Groq Llama-3 (Super Fast, Infinite Free Limits)
+    3. Fallback: Gemini REST API
     """
     try:
         clean_expr = prompt_text.replace("=", "").replace("?", "").replace("kya hota hai", "").strip()
@@ -225,7 +245,9 @@ def query_shish_ai_permanent(prompt_text):
 
     return "⚠️ Please add `GROQ_API_KEY` or `GEMINI_API_KEY` in Streamlit Cloud Secrets."
 
-# MATERIAL LIBRARY DATABASE
+# ---------------------------------------------------------
+# MATERIAL DATABASE
+# ---------------------------------------------------------
 MATERIALS_DB = {
     "Air (Ideal Gas)": {"density": 1.225, "viscosity": 1.81e-5, "k": 0.026, "cp": 1005},
     "Water (Liquid)": {"density": 998.0, "viscosity": 1.005e-3, "k": 0.6, "cp": 4182},
@@ -235,7 +257,9 @@ MATERIALS_DB = {
     "Titanium Grade 5": {"density": 4430, "viscosity": 0.0, "k": 6.7, "cp": 526}
 }
 
-# REPORT GENERATOR FUNCTIONS
+# ---------------------------------------------------------
+# REPORT GENERATION ENGINES
+# ---------------------------------------------------------
 def generate_ansys_contour_figure(verts, field_data, field_title):
     fig, ax = plt.subplots(figsize=(6, 3), facecolor='#FFFFFF')
     ax.set_facecolor('#FFFFFF')
@@ -334,11 +358,15 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
     buffer.seek(0)
     return buffer
 
-# MAIN WORKSTATION DASHBOARD
+# ---------------------------------------------------------
+# DASHBOARD LAYOUT & UI
+# ---------------------------------------------------------
 st.markdown("""
-<div class="ansys-top-banner">
-    <div>⚡ ANSYS Discovery 2026 R1 - Multi-Physics Workstation Studio</div>
-    <div style="font-size: 13px; opacity: 0.9;">CFD | Static Structural FEA | Combustion | Multiphase VOF</div>
+<div class="ansys-header-banner">
+    <div>
+        <div class="banner-title">⚡ ANSYS Discovery 2026 R1 - Workstation Studio</div>
+        <div class="banner-sub">Multi-Physics Numerical Analysis Engine (shish AI Integrated)</div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -515,7 +543,7 @@ with col_viewer:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-# EXPORT EXECUTIVE REPORT CARD
+# EXPORT REPORT CARD
 with col_details:
     st.markdown('<div class="ansys-card"><div class="card-title">📄 Export Executive Report</div>', unsafe_allow_html=True)
     pdf_data = generate_ansys_workbench_pdf(
@@ -560,7 +588,7 @@ if st.session_state.chat_open:
         with head_col1:
             st.markdown("<h2 style='color:#0F172A; margin:0; font-size:20px; font-weight:800;'>🤖 shish AI</h2>", unsafe_allow_html=True)
         with head_col2:
-            new_pos = st.selectbox("Position", ["Bottom-Left", "Bottom-Right", "Top-Left", "Top-Right"], index=["Bottom-Left", "Bottom-Right", "Top-Left", "Top-Right"].index(st.session_state.chat_pos), label_visibility="collapsed", key="pos_select")
+            new_pos = st.selectbox("Position", ["Bottom-Right", "Bottom-Left", "Top-Left", "Top-Right"], index=["Bottom-Right", "Bottom-Left", "Top-Left", "Top-Right"].index(st.session_state.chat_pos), label_visibility="collapsed", key="pos_select")
             if new_pos != st.session_state.chat_pos:
                 st.session_state.chat_pos = new_pos
                 st.rerun()

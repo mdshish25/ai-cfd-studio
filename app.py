@@ -13,17 +13,13 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-# Google Gemini SDK Import Handling
+# Google Gemini SDK Import
 HAS_GENAI = False
 try:
     import google.generativeai as genai
     HAS_GENAI = True
 except ImportError:
-    try:
-        from google import genai
-        HAS_GENAI = True
-    except ImportError:
-        HAS_GENAI = False
+    HAS_GENAI = False
 
 # Streamlit Page Setup
 st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="expanded")
@@ -68,27 +64,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
 # GEMINI API INITIALIZATION FOR SHISH AI ENGINE
-# ---------------------------------------------------------
 api_key = st.secrets.get("GEMINI_API_KEY", None)
 model_ai = None
 
 if api_key and HAS_GENAI:
     try:
         genai.configure(api_key=api_key)
-        sys_instruct = (
-            "You are 'shish', an expert AI assistant specializing in Mechanical Engineering, "
-            "FEA, CFD, Mathematics, Physics, and Python code debugging. Answer all general questions, "
-            "math calculations, and engineering queries accurately and naturally in Hinglish or English."
-        )
-        model_ai = genai.GenerativeModel("gemini-1.5-flash", system_instruction=sys_instruct)
-    except Exception as e:
+        model_ai = genai.GenerativeModel("gemini-1.5-flash")
+    except Exception:
         model_ai = None
 
-# ---------------------------------------------------------
 # MATERIAL LIBRARY DATABASE
-# ---------------------------------------------------------
 MATERIALS_DB = {
     "Air (Ideal Gas)": {"density": 1.225, "viscosity": 1.81e-5, "k": 0.026, "cp": 1005},
     "Water (Liquid)": {"density": 998.0, "viscosity": 1.005e-3, "k": 0.6, "cp": 4182},
@@ -98,9 +85,7 @@ MATERIALS_DB = {
     "Titanium Grade 5": {"density": 4430, "viscosity": 0.0, "k": 6.7, "cp": 526}
 }
 
-# ---------------------------------------------------------
 # REPORT GENERATOR FUNCTIONS
-# ---------------------------------------------------------
 def generate_ansys_contour_figure(verts, field_data, field_title):
     fig, ax = plt.subplots(figsize=(6, 3), facecolor='#0F172A')
     ax.set_facecolor('#0F172A')
@@ -199,22 +184,19 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
     buffer.seek(0)
     return buffer
 
-# ---------------------------------------------------------
 # SIDEBAR: SHISH AI ASSISTANT PANEL
-# ---------------------------------------------------------
 with st.sidebar:
     st.header("🤖 shish - AI Engineering Assistant")
     st.caption("Powered by Gemini Engine")
 
-    # API Key Connection Status Banner
     if api_key and model_ai:
-        st.success("🟢 Gemini API Connected")
+        st.success("🟢 Gemini API Active")
     else:
-        st.error("🔴 API Key Not Connected / Configured")
+        st.error("🔴 Check GEMINI_API_KEY in Secrets")
 
     if "messages" not in st.session_state:
         st.session_state.messages = [
-            {"role": "assistant", "content": "Namaste! Main **shish** hoon, aapka Personal AI Simulation Assistant. Aap koi bhi question, math problem, ya engineering query pooch sakte hain."}
+            {"role": "assistant", "content": "Namaste! Main **shish** hoon. Aap math calculation, engineering formulas, ya Python error ka answer pooch sakte hain."}
         ]
 
     for msg in st.session_state.messages:
@@ -229,29 +211,28 @@ with st.sidebar:
         reply = ""
         if model_ai:
             try:
-                res = model_ai.generate_content(user_input)
+                res = model_ai.generate_content(
+                    f"You are shish, an expert engineering AI assistant. Answer this query naturally in Hinglish/English: {user_input}"
+                )
                 reply = res.text
             except Exception as ex:
                 reply = f"API Execution Error: {str(ex)}"
         else:
-            # Basic Arithmetic & Query Fallback System
             try:
                 clean_expr = user_input.replace("=", "").replace("kya hota hai", "").strip()
                 if re.match(r"^[\d\+\-\*\/\.\s\(\)]+$", clean_expr):
                     calc_res = eval(clean_expr)
                     reply = f"**{user_input}** = `{calc_res}`"
                 else:
-                    reply = f"Main **shish** hoon! Gemini AI activation ke liye `GEMINI_API_KEY` ko Streamlit Secrets me `GEMINI_API_KEY = 'your_key'` ke format me save karein."
+                    reply = "Main **shish** hoon! Correct `AIzaSy...` API Key Streamlit Secrets me add karein."
             except Exception:
-                reply = "Main **shish** hoon! Please Streamlit Secrets me `GEMINI_API_KEY` verify karein."
+                reply = "Main **shish** hoon!"
 
         st.session_state.messages.append({"role": "assistant", "content": reply})
         with st.chat_message("assistant"):
             st.write(reply)
 
-# ---------------------------------------------------------
 # MAIN WORKSTATION DASHBOARD
-# ---------------------------------------------------------
 st.markdown("""
 <div class="ansys-top-banner">
     <div>⚡ ANSYS Discovery 2026 R1 - Multi-Physics Studio (shish AI Inside)</div>
@@ -375,7 +356,7 @@ with col_details:
         st.metric("H2O Species Mass Frac", "0.116")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    else: # Static Structural FEA
+    else:
         applied_load = st.number_input("Applied Load (MPa)", value=33.33)
         contour_field = applied_load * 12.5 * (1.0 - 0.45 * norm_r**2)
         colorscale = "Rainbow"

@@ -14,7 +14,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 # Streamlit Page Setup
-st.set_page_config(page_title="ANSYS Multi-Physics & AI Workstation 2026", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="expanded")
 
 # CUSTOM WORKSTATION THEME & CHATBOT STYLING
 st.markdown("""
@@ -104,7 +104,7 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
 
     now_str = datetime.datetime.now().strftime("%A, %B %d, %Y at %I:%M:%S %p")
     meta_data = [
-        ["Project", project_name, "Software Version", "ANSYS Multi-Physics 2026 R1 Engine"],
+        ["Project", project_name, "Software Version", "shish AI Engine 2026 R1"],
         ["Author", author, "Database Path", f"C:\\ANSYS_MODELS\\{filename}"],
         ["Report Created", now_str, "Physics Module", physics_mode]
     ]
@@ -170,22 +170,22 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
     return buffer
 
 # ---------------------------------------------------------
-# SIDEBAR: AI ASSISTANT PANEL
+# SIDEBAR: SHISH AI ASSISTANT PANEL
 # ---------------------------------------------------------
 with st.sidebar:
-    st.header("🤖 ANSYS AI Engineering Assistant")
-    st.caption("Auto-Code Debugger & Physics Expert Engine")
+    st.header("🤖 shish - AI Engineering Assistant")
+    st.caption("Powered by shish Engineering LLM (APDL / Fluent Expert)")
 
     if "messages" not in st.session_state:
         st.session_state.messages = [
-            {"role": "assistant", "content": "Namaste! Main aapka **ANSYS Multi-Physics AI Assistant** hoon. Combustion, VOF Multiphase, FEA/CFD, ya kisi bhi Streamlit code error ka solution poochne ke liye query type karein."}
+            {"role": "assistant", "content": "Namaste! Main **shish** hoon, aapka Personal AI Simulation Assistant. Aap combustion, VOF multiphase, FEA/CFD, ya Streamlit error ke baare me mujhse pooch sakte hain."}
         ]
 
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
-    if user_input := st.chat_input("Poochhein (e.g. Combustion temperature / VOF phase ka formula)..."):
+    if user_input := st.chat_input("shish se poochhein..."):
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.write(user_input)
@@ -200,7 +200,7 @@ with st.sidebar:
         elif "error" in query_lower or "bug" in query_lower or "syntax" in query_lower:
             reply = "Agar koi error aa raha hai, toh exact error log paste karein. Main code ka fixed patch instantly generate kar doonga."
         else:
-            reply = f"Aapne poocha: '{user_input}'. Main ANSYS Mechanical, Fluent CFD, Combustion, Multiphase VOF, aur Material Library ke multi-physics equations ke hisaab se support kar sakta hoon."
+            reply = f"Aapne poocha: '{user_input}'. Main **shish**, ANSYS Mechanical, Fluent CFD, Combustion, Multiphase VOF, aur Material Library ke multi-physics equations ke hisaab se support kar sakta hoon."
 
         st.session_state.messages.append({"role": "assistant", "content": reply})
         with st.chat_message("assistant"):
@@ -211,7 +211,7 @@ with st.sidebar:
 # ---------------------------------------------------------
 st.markdown("""
 <div class="ansys-top-banner">
-    <div>⚡ ANSYS Discovery 2026 R1 - Advanced Multi-Physics AI Studio</div>
+    <div>⚡ ANSYS Discovery 2026 R1 - Multi-Physics Studio (shish AI Inside)</div>
     <div style="font-size: 12px; opacity: 0.8;">CFD | FEA | Combustion | Multiphase VOF</div>
 </div>
 """, unsafe_allow_html=True)
@@ -394,7 +394,7 @@ with col_details:
     pdf_data = generate_ansys_workbench_pdf(
         filename=filename_str,
         project_name="Multi-Physics Analysis",
-        author="ANSYS AI Workstation Engine",
+        author="shish AI Workstation Engine",
         physics_mode=physics_mode,
         mat_name=selected_mat,
         mat_props=mat_props,
@@ -406,7 +406,7 @@ with col_details:
     st.download_button(
         label="📥 Download Executive PDF Report",
         data=pdf_data,
-        file_name=f"{filename_str.split('.')[0]}_ANSYS_Report.pdf",
+        file_name=f"{filename_str.split('.')[0]}_shish_ANSYS_Report.pdf",
         mime="application/pdf",
         type="primary",
         use_container_width=True

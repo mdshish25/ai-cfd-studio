@@ -7,23 +7,13 @@ import re
 import datetime
 import math
 import matplotlib.pyplot as plt
+import requests
+import json
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
-
-# Official Google GenAI SDK Import
-HAS_GENAI = False
-try:
-    from google import genai
-    HAS_GENAI = True
-except ImportError:
-    try:
-        import google.generativeai as genai_old
-        HAS_GENAI = True
-    except ImportError:
-        HAS_GENAI = False
 
 # Streamlit Page Setup
 st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="expanded")
@@ -68,56 +58,53 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# GEMINI API CLIENT INITIALIZATION FOR SHISH AI ENGINE
+# DIRECT REST API FUNCTION FOR GUARANTEED RESPONSE
 api_key = st.secrets.get("GEMINI_API_KEY", None)
-client_ai = None
 
-if api_key and HAS_GENAI:
-    try:
-        from google import genai
-        client_ai = genai.Client(api_key=api_key)
-    except Exception:
-        client_ai = None
+def query_gemini_direct(prompt_text, key):
+    """
+    Direct REST HTTP Request to Google Gemini API.
+    Bypasses SDK version conflicts and guaranteed execution.
+    """
+    if not key:
+        return "Error: API Key missing in Streamlit Secrets."
 
-# HELPER FUNCTION FOR SMART MULTI-MODEL FALLBACK RESPONSE
-def get_shish_ai_response(user_query, client):
-    """
-    Tries active Gemini models sequentially to avoid 404 NOT_FOUND errors.
-    """
-    model_candidates = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
+    models_to_try = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
+    
     system_prompt = (
         "You are shish, an expert engineering AI assistant and problem solver. "
-        "Answer the user's query accurately, concisely, and naturally in Hinglish or English: "
+        "Answer the user's question accurately, directly, and naturally in Hinglish or English: "
     )
     
-    for model_name in model_candidates:
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": system_prompt + str(prompt_text)}
+                ]
+            }
+        ]
+    }
+
+    for model_name in models_to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
         try:
-            res = client.models.generate_content(
-                model=model_name,
-                contents=system_prompt + str(user_query)
-            )
-            if res and res.text:
-                return res.text
-        except Exception as e:
-            # Continue trying the next candidate if 404 or unsupported
-            continue
-            
-    # Fallback to older SDK method if client-based call fails
-    try:
-        import google.generativeai as legacy_genai
-        legacy_genai.configure(api_key=api_key)
-        for model_name in ['gemini-1.5-flash', 'gemini-1.5-pro']:
-            try:
-                m = legacy_genai.GenerativeModel(model_name)
-                res = m.generate_content(system_prompt + str(user_query))
-                if res and res.text:
-                    return res.text
-            except Exception:
+            res = requests.post(url, headers=headers, data=json.dumps(payload), timeout=10)
+            if res.status_code == 200:
+                data = res.json()
+                text_out = data["candidates"][0]["content"]["parts"][0]["text"]
+                return text_out
+            elif res.status_code == 400 or res.status_code == 404:
                 continue
-    except Exception:
-        pass
-        
-    return None
+            else:
+                err_data = res.json()
+                err_msg = err_data.get("error", {}).get("message", res.text)
+                return f"API Error ({res.status_code}): {err_msg}"
+        except Exception as e:
+            continue
+
+    return "API Execution Error: Could not connect to Gemini models. Please verify your GEMINI_API_KEY."
 
 # MATERIAL LIBRARY DATABASE
 MATERIALS_DB = {
@@ -231,7 +218,7 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
 # SIDEBAR: SHISH AI ASSISTANT PANEL
 with st.sidebar:
     st.header("🤖 shish - AI Engineering Assistant")
-    st.caption("Powered by Multi-Model Gemini Engine")
+    st.caption("Direct REST Gemini Engine")
 
     if api_key:
         st.success("🟢 Gemini API Active")
@@ -252,20 +239,8 @@ with st.sidebar:
         with st.chat_message("user"):
             st.write(user_input)
 
-        reply = None
-        if api_key and client_ai:
-            reply = get_shish_ai_response(user_input, client_ai)
-
-        if not reply:
-            try:
-                clean_expr = user_input.replace("=", "").replace("kya hota hai", "").strip()
-                if re.match(r"^[\d\+\-\*\/\.\s\(\)]+$", clean_expr):
-                    calc_res = eval(clean_expr)
-                    reply = f"**{user_input}** = `{calc_res}`"
-                else:
-                    reply = "Main **shish** hoon! Please Streamlit Secrets me valid Gemini API Key check karein."
-            except Exception:
-                reply = "Main **shish** hoon! Aapka question receive ho gaya hai."
+        with st.spinner("shish is thinking..."):
+            reply = query_gemini_direct(user_input, api_key)
 
         st.session_state.messages.append({"role": "assistant", "content": reply})
         with st.chat_message("assistant"):

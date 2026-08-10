@@ -69,7 +69,108 @@ MATERIALS_DB = {
 }
 
 # ---------------------------------------------------------
-# SIDEBAR: AI ASSISTANT & AUTO DEBUGGER PANEL
+# REPORT GENERATOR FUNCTIONS
+# ---------------------------------------------------------
+def generate_ansys_contour_figure(verts, field_data, field_title):
+    fig, ax = plt.subplots(figsize=(6, 3), facecolor='#0F172A')
+    ax.set_facecolor('#0F172A')
+    x, y = verts[:, 0], verts[:, 1]
+    min_len = min(len(x), len(field_data))
+    sc = ax.scatter(x[:min_len], y[:min_len], c=field_data[:min_len], cmap='jet', s=8)
+    cbar = fig.colorbar(sc, ax=ax)
+    cbar.ax.yaxis.set_tick_params(color='white')
+    plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
+    cbar.set_label(field_title, color='white')
+    ax.axis('off')
+    plt.tight_layout()
+    buf = BytesIO()
+    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor=fig.get_facecolor())
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, mat_name, mat_props, verts, contour_field, field_title):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
+    styles = getSampleStyleSheet()
+    story = []
+
+    title_style = ParagraphStyle('ANSYSTitle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#002B49'), spaceAfter=2)
+    sub_style = ParagraphStyle('ANSYSSub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#475569'), spaceAfter=10)
+    
+    story.append(Paragraph("ANSYS Multi-Physics Simulation Report", title_style))
+    story.append(Paragraph(f"Release 2026 R1 - Official {physics_mode} Analysis Report", sub_style))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#FFB800'), spaceAfter=10))
+
+    now_str = datetime.datetime.now().strftime("%A, %B %d, %Y at %I:%M:%S %p")
+    meta_data = [
+        ["Project", project_name, "Software Version", "ANSYS Multi-Physics 2026 R1 Engine"],
+        ["Author", author, "Database Path", f"C:\\ANSYS_MODELS\\{filename}"],
+        ["Report Created", now_str, "Physics Module", physics_mode]
+    ]
+    t_meta = Table(meta_data, colWidths=[90, 170, 100, 200])
+    t_meta.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F1F5F9')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
+    ]))
+    story.append(t_meta)
+    story.append(Spacer(1, 10))
+
+    story.append(Paragraph("1. Material Specification & Domain Conditions", styles['Heading2']))
+    story.append(Spacer(1, 4))
+    
+    mat_table_data = [
+        ["Material Selected", "Density (kg/m³)", "Conductivity k (W/m·K)", "Specific Heat Cp (J/kg·K)"],
+        [mat_name, f"{mat_props['density']}", f"{mat_props['k']}", f"{mat_props['cp']}"]
+    ]
+    t_mat = Table(mat_table_data, colWidths=[160, 130, 140, 130])
+    t_mat.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#002B49')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#94A3B8')),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F8FAFC')),
+    ]))
+    story.append(t_mat)
+    story.append(Spacer(1, 10))
+
+    story.append(Paragraph("2. Numerical Field Results Summary", styles['Heading2']))
+    story.append(Spacer(1, 4))
+    
+    res_table_data = [
+        ["Field Metric", "Maximum Computed", "Minimum Computed", "Unit Status"],
+        [field_title, f"{np.max(contour_field):.2f}", f"{np.min(contour_field):.2f}", "CONVERGED"]
+    ]
+    t_res = Table(res_table_data, colWidths=[180, 130, 130, 120])
+    t_res.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0284C7')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#38BDF8')),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F0F9FF')),
+    ]))
+    story.append(t_res)
+    story.append(Spacer(1, 10))
+
+    story.append(Paragraph("3. ANSYS Contour Distribution", styles['Heading2']))
+    story.append(Spacer(1, 4))
+
+    contour_img_buf = generate_ansys_contour_figure(verts, contour_field, field_title)
+    story.append(Image(contour_img_buf, width=500, height=250))
+    story.append(Paragraph(f"<i>Figure 1: ANSYS 2026 R1 {field_title} Nodal Distribution Map.</i>", styles['Italic']))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+# ---------------------------------------------------------
+# SIDEBAR: AI ASSISTANT PANEL
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("🤖 ANSYS AI Engineering Assistant")
@@ -287,3 +388,27 @@ with col_viewer:
         paper_bgcolor="#1E293B"
     )
     st.plotly_chart(fig, use_container_width=True)
+
+with col_details:
+    st.markdown('<div class="ansys-card"><div class="card-title">📄 Export Executive Report</div>', unsafe_allow_html=True)
+    pdf_data = generate_ansys_workbench_pdf(
+        filename=filename_str,
+        project_name="Multi-Physics Analysis",
+        author="ANSYS AI Workstation Engine",
+        physics_mode=physics_mode,
+        mat_name=selected_mat,
+        mat_props=mat_props,
+        verts=verts,
+        contour_field=contour_field,
+        field_title=bar_title
+    )
+
+    st.download_button(
+        label="📥 Download Executive PDF Report",
+        data=pdf_data,
+        file_name=f"{filename_str.split('.')[0]}_ANSYS_Report.pdf",
+        mime="application/pdf",
+        type="primary",
+        use_container_width=True
+    )
+    st.markdown('</div>', unsafe_allow_html=True)

@@ -16,9 +16,9 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 # Streamlit Page Setup
-st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="collapsed")
 
-# CUSTOM WORKSTATION THEME & CHATBOT STYLING
+# CUSTOM WORKSTATION THEME & FLOATING POP-UP CHATBOT STYLING
 st.markdown("""
 <style>
     .stApp {
@@ -55,6 +55,21 @@ st.markdown("""
         border-bottom: 1px solid #334155;
         padding-bottom: 6px;
     }
+    
+    /* FLOATING BOTTOM-LEFT AI CONTAINER */
+    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 99999;
+        width: 380px;
+        max-height: 520px;
+        background-color: #1E293B;
+        border: 2px solid #0284C7;
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -65,11 +80,10 @@ gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 def query_shish_ai_permanent(prompt_text):
     """
     PERMANENT NO-LIMIT AI ENGINE:
-    1. Instant Math Solver
+    1. Instant Local Math Solver
     2. Groq Llama-3 API (High Speed & 100% Free Rate Limit)
     3. Gemini REST API Fallback
     """
-    # Step 1: Instant Local Math Solver
     try:
         clean_expr = prompt_text.replace("=", "").replace("?", "").replace("kya hota hai", "").strip()
         if re.match(r"^[\d\+\-\*\/\.\s\(\)]+$", clean_expr):
@@ -85,7 +99,6 @@ def query_shish_ai_permanent(prompt_text):
         "Python Coding, Logic, and General Knowledge. Communicate naturally in Hinglish or English."
     )
 
-    # Step 2: Query Groq API (Super Fast Llama-3.3 Engine)
     if groq_key:
         try:
             url = "https://api.groq.com/openai/v1/chat/completions"
@@ -107,7 +120,6 @@ def query_shish_ai_permanent(prompt_text):
         except Exception:
             pass
 
-    # Step 3: Query Gemini REST API (Fallback Engine)
     if gemini_key:
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
@@ -123,9 +135,7 @@ def query_shish_ai_permanent(prompt_text):
 
     return "⚠️ Please add `GROQ_API_KEY` or `GEMINI_API_KEY` in Streamlit Cloud Secrets."
 
-# ---------------------------------------------------------
 # MATERIAL LIBRARY DATABASE
-# ---------------------------------------------------------
 MATERIALS_DB = {
     "Air (Ideal Gas)": {"density": 1.225, "viscosity": 1.81e-5, "k": 0.026, "cp": 1005},
     "Water (Liquid)": {"density": 998.0, "viscosity": 1.005e-3, "k": 0.6, "cp": 4182},
@@ -135,9 +145,7 @@ MATERIALS_DB = {
     "Titanium Grade 5": {"density": 4430, "viscosity": 0.0, "k": 6.7, "cp": 526}
 }
 
-# ---------------------------------------------------------
 # REPORT GENERATOR FUNCTIONS
-# ---------------------------------------------------------
 def generate_ansys_contour_figure(verts, field_data, field_title):
     fig, ax = plt.subplots(figsize=(6, 3), facecolor='#0F172A')
     ax.set_facecolor('#0F172A')
@@ -236,42 +244,7 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
     buffer.seek(0)
     return buffer
 
-# ---------------------------------------------------------
-# SIDEBAR: SHISH AI ASSISTANT PANEL
-# ---------------------------------------------------------
-with st.sidebar:
-    st.header("🤖 shish - Universal AI Assistant")
-    st.caption("Unstoppable Multi-API Engine")
-
-    if groq_key or gemini_key:
-        st.success("🟢 shish AI Active")
-    else:
-        st.error("🔴 Add GROQ_API_KEY in Streamlit Secrets")
-
-    if "messages" not in st.session_state:
-        st.session_state.messages = [
-            {"role": "assistant", "content": "Namaste! Main **shish** hoon, aapka Personal AI Assistant. Science, Math, Engineering, Coding, ya kisi bhi general sawaal ka answer poochhein!"}
-        ]
-
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
-
-    if user_input := st.chat_input("shish se poochhein..."):
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.write(user_input)
-
-        with st.spinner("shish is answering..."):
-            reply = query_shish_ai_permanent(user_input)
-
-        st.session_state.messages.append({"role": "assistant", "content": reply})
-        with st.chat_message("assistant"):
-            st.write(reply)
-
-# ---------------------------------------------------------
 # MAIN WORKSTATION DASHBOARD
-# ---------------------------------------------------------
 st.markdown("""
 <div class="ansys-top-banner">
     <div>⚡ ANSYS Discovery 2026 R1 - Multi-Physics Studio (shish AI Inside)</div>
@@ -475,3 +448,58 @@ with col_details:
         use_container_width=True
     )
     st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# BOTTOM-LEFT FLOATING POP-UP CHATBOT WIDGET
+# ---------------------------------------------------------
+if "chat_open" not in st.session_state:
+    st.session_state.chat_open = False
+
+# Floating Launcher Button at Bottom-Left Corner
+st.markdown("""
+<style>
+    div.floating-chat-button {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 999999;
+    }
+</style>
+<div class="floating-chat-button"></div>
+""", unsafe_allow_html=True)
+
+btn_col1, btn_col2 = st.columns([1, 20])
+with btn_col1:
+    if not st.session_state.chat_open:
+        if st.button("💬 shish AI", type="primary"):
+            st.session_state.chat_open = True
+            st.rerun()
+
+# Floating Pop-up Window Display
+if st.session_state.chat_open:
+    with st.container():
+        st.markdown('<div class="floating-chat-anchor"></div>', unsafe_allow_html=True)
+        head_col1, head_col2 = st.columns([4, 1])
+        with head_col1:
+            st.markdown("🤖 **shish AI Assistant**")
+        with head_col2:
+            if st.button("─", help="Minimize Chat"):
+                st.session_state.chat_open = False
+                st.rerun()
+
+        if "messages" not in st.session_state:
+            st.session_state.messages = [
+                {"role": "assistant", "content": "Namaste! Main **shish** hoon. Koi bhi sawaal poochhein!"}
+            ]
+
+        chat_container = st.container(height=300)
+        with chat_container:
+            for msg in st.session_state.messages:
+                with st.chat_message(msg["role"]):
+                    st.write(msg["content"])
+
+        if user_input := st.chat_input("Ask shish AI..."):
+            st.session_state.messages.append({"role": "user", "content": user_input})
+            reply = query_shish_ai_permanent(user_input)
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+            st.rerun()

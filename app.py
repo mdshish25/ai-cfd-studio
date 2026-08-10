@@ -31,51 +31,50 @@ pos_css = {
 }
 current_pos_css = pos_css.get(st.session_state.chat_pos, pos_css["Bottom-Right"])
 
-# PREMIUM WORKSTATION THEME & ATTRACTIVE FLOATING WIDGET STYLING
+# CLEAN WHITE THEME & ATTRACTIVE FLOATING WIDGET STYLING
 st.markdown(f"""
 <style>
-    /* MAIN BACKGROUND */
+    /* MAIN LIGHT/WHITE BACKGROUND */
     .stApp {{
-        background-color: #0B1120;
-        color: #F8FAFC;
+        background-color: #F8FAFC !important;
+        color: #0F172A !important;
         font-family: 'Inter', 'Segoe UI', sans-serif;
     }}
     
     /* ANSYS PROFESSIONAL BANNER */
     .ansys-top-banner {{
-        background: linear-gradient(135deg, #0284C7 0%, #0F172A 100%);
+        background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
         color: #FFFFFF;
-        padding: 12px 24px;
+        padding: 14px 24px;
         font-weight: 700;
         font-size: 18px;
         letter-spacing: 0.8px;
-        border-bottom: 2px solid #38BDF8;
         border-radius: 8px;
         margin-bottom: 20px;
-        box-shadow: 0 4px 20px rgba(2, 132, 199, 0.25);
+        box-shadow: 0 4px 15px rgba(2, 132, 199, 0.2);
         display: flex;
         justify-content: space-between;
         align-items: center;
     }}
 
-    /* GLASS CARDS */
+    /* WHITE CARDS STYLING */
     .ansys-card {{
-        background-color: #1E293B;
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 18px;
-        margin-bottom: 18px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 12px !important;
+        padding: 18px !important;
+        margin-bottom: 18px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
     }}
     .card-title {{
-        color: #38BDF8;
-        font-size: 13px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 14px;
-        border-bottom: 1px solid #334155;
-        padding-bottom: 8px;
+        color: #0284C7 !important;
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        margin-bottom: 14px !important;
+        border-bottom: 2px solid #F1F5F9 !important;
+        padding-bottom: 8px !important;
     }}
 
     /* FLOATING AI TRIGGER BUTTON */
@@ -94,7 +93,7 @@ st.markdown(f"""
         font-weight: 800 !important;
         font-size: 16px !important;
         letter-spacing: 0.5px !important;
-        box-shadow: 0 10px 25px rgba(2, 132, 199, 0.6), 0 0 15px rgba(56, 189, 248, 0.5) !important;
+        box-shadow: 0 10px 25px rgba(2, 132, 199, 0.4) !important;
         cursor: pointer !important;
         transition: all 0.3s ease-in-out !important;
     }}
@@ -102,7 +101,7 @@ st.markdown(f"""
     div.floating-ai-btn-container button:hover {{
         background: linear-gradient(135deg, #0369A1 0%, #1D4ED8 100%) !important;
         transform: translateY(-3px) scale(1.04) !important;
-        box-shadow: 0 14px 30px rgba(2, 132, 199, 0.8), 0 0 22px rgba(56, 189, 248, 0.7) !important;
+        box-shadow: 0 14px 30px rgba(2, 132, 199, 0.6) !important;
     }}
     
     /* WHATSAPP-STYLE CHAT CONTAINER */
@@ -113,10 +112,10 @@ st.markdown(f"""
         width: 440px !important;
         max-width: 92vw !important;
         background-color: #E5DDD5 !important;
-        border: 2px solid #94A3B8 !important;
+        border: 2px solid #CBD5E1 !important;
         border-radius: 18px !important;
         padding: 16px !important;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6) !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2) !important;
         color: #0F172A !important;
         resize: both !important;
         overflow: auto !important;
@@ -238,15 +237,15 @@ MATERIALS_DB = {
 
 # REPORT GENERATOR FUNCTIONS
 def generate_ansys_contour_figure(verts, field_data, field_title):
-    fig, ax = plt.subplots(figsize=(6, 3), facecolor='#0F172A')
-    ax.set_facecolor('#0F172A')
+    fig, ax = plt.subplots(figsize=(6, 3), facecolor='#FFFFFF')
+    ax.set_facecolor('#FFFFFF')
     x, y = verts[:, 0], verts[:, 1]
     min_len = min(len(x), len(field_data))
     sc = ax.scatter(x[:min_len], y[:min_len], c=field_data[:min_len], cmap='jet', s=8)
     cbar = fig.colorbar(sc, ax=ax)
-    cbar.ax.yaxis.set_tick_params(color='white')
-    plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
-    cbar.set_label(field_title, color='white')
+    cbar.ax.yaxis.set_tick_params(color='#0F172A')
+    plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='#0F172A')
+    cbar.set_label(field_title, color='#0F172A')
     ax.axis('off')
     plt.tight_layout()
     buf = BytesIO()
@@ -477,17 +476,17 @@ with col_viewer:
         i=faces[:, 0], j=faces[:, 1], k=faces[:, 2],
         intensity=contour_field,
         colorscale=colorscale,
-        colorbar=dict(title=bar_title, thickness=18, x=1.01, len=0.8, tickfont=dict(color='white')),
+        colorbar=dict(title=bar_title, thickness=18, x=1.01, len=0.8, tickfont=dict(color='#0F172A')),
         opacity=0.98,
-        lighting=dict(ambient=0.5, diffuse=0.8, roughness=0.1)
+        lighting=dict(ambient=0.6, diffuse=0.8, roughness=0.1)
     ))
 
     if show_mesh_wire:
         fig.add_trace(go.Scatter3d(
             x=verts[::3, 0], y=verts[::3, 1], z=verts[::3, 2],
             mode='markers+lines',
-            marker=dict(size=2, color='#38BDF8'),
-            line=dict(color='#475569', width=1)
+            marker=dict(size=2, color='#0284C7'),
+            line=dict(color='#64748B', width=1)
         ))
 
     if show_probes:
@@ -505,14 +504,14 @@ with col_viewer:
 
     fig.update_layout(
         scene=dict(
-            xaxis=dict(title='X (m)', backgroundcolor="#0F172A", gridcolor="#334155", showbackground=True),
-            yaxis=dict(title='Y (m)', backgroundcolor="#0F172A", gridcolor="#334155", showbackground=True),
-            zaxis=dict(title='Z (m)', backgroundcolor="#0F172A", gridcolor="#334155", showbackground=True),
+            xaxis=dict(title='X (m)', backgroundcolor="#F1F5F9", gridcolor="#CBD5E1", showbackground=True),
+            yaxis=dict(title='Y (m)', backgroundcolor="#F1F5F9", gridcolor="#CBD5E1", showbackground=True),
+            zaxis=dict(title='Z (m)', backgroundcolor="#F1F5F9", gridcolor="#CBD5E1", showbackground=True),
             aspectmode='data'
         ),
         height=680,
         margin=dict(l=0, r=0, b=0, t=0),
-        paper_bgcolor="#1E293B"
+        paper_bgcolor="#FFFFFF"
     )
     st.plotly_chart(fig, use_container_width=True)
 

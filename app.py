@@ -64,32 +64,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# GEMINI API INITIALIZATION WITH DYNAMIC MODEL FALLBACK FOR SHISH AI ENGINE
+# GEMINI API INITIALIZATION WITH UPDATED MODEL FOR SHISH AI ENGINE
 api_key = st.secrets.get("GEMINI_API_KEY", None)
 model_ai = None
 
 if api_key and HAS_GENAI:
     try:
         genai.configure(api_key=api_key)
-        # Auto-detect available models or fallback gracefully
-        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        
-        target_model = None
-        for preferred in ['models/gemini-2.5-flash', 'models/gemini-2.0-flash', 'models/gemini-1.5-pro', 'models/gemini-1.5-flash-latest']:
-            if preferred in available_models:
-                target_model = preferred
-                break
-        
-        if not target_model and len(available_models) > 0:
-            target_model = available_models[0]
-            
-        if target_model:
-            model_ai = genai.GenerativeModel(target_model)
-        else:
-            model_ai = genai.GenerativeModel("gemini-2.5-flash")
+        # Standard updated Gemini Flash model initialization
+        model_ai = genai.GenerativeModel("gemini-1.5-flash")
     except Exception:
         try:
-            model_ai = genai.GenerativeModel("gemini-2.5-flash")
+            model_ai = genai.GenerativeModel("gemini-1.5-pro")
         except Exception:
             model_ai = None
 

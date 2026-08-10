@@ -11,7 +11,7 @@ from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
@@ -79,24 +79,14 @@ def run_real_fea_solver(verts, faces, E_modulus, nu, applied_force_val):
     # Material Elasticity Matrix [D]
     E = E_modulus * 1e9  # Convert GPa to Pa
     factor = E / ((1 + nu) * (1 - 2 * nu))
-    D = factor * np.array([
-        [1 - nu, nu, nu, 0, 0, 0],
-        [nu, 1 - nu, nu, 0, 0, 0],
-        [nu, nu, 1 - nu, 0, 0, 0],
-        [0, 0, 0, (1 - 2 * nu) / 2, 0, 0],
-        [0, 0, 0, 0, (1 - 2 * nu) / 2, 0],
-        [0, 0, 0, 0, 0, (1 - 2 * nu) / 2]
-    ])
 
     # Element-by-Element Stiffness Assembly
     for face in faces:
         p1, p2, p3 = verts[face[0]], verts[face[1]], verts[face[2]]
-        # Calculate element area/volume proxy
         v1, v2 = p2 - p1, p3 - p1
         area = 0.5 * np.linalg.norm(np.cross(v1, v2))
         k_elem = (E * max(area, 1e-6)) * np.eye(9)
 
-        # Assemble into Global K Matrix
         for i in range(3):
             for j in range(3):
                 idx_i = face[i] * 3
@@ -140,12 +130,10 @@ def run_real_fea_solver(verts, faces, E_modulus, nu, applied_force_val):
         eps_y = dy / max(abs(verts[i, 1]), 1e-3)
         eps_z = dz / max(abs(verts[i, 2]), 1e-3)
         
-        # Hooke's Law Strain-Stress Transformation
         sig_x = E * eps_x
         sig_y = E * eps_y
         sig_z = E * eps_z
         
-        # von-Mises Formula: sqrt(0.5 * ((s1-s2)^2 + (s2-s3)^2 + (s3-s1)^2))
         vm = np.sqrt(0.5 * ((sig_x - sig_y)**2 + (sig_y - sig_z)**2 + (sig_z - sig_x)**2))
         von_mises_stress[i] = vm / 1e6  # Convert to MPa
 
@@ -162,14 +150,20 @@ def run_real_fea_solver(verts, faces, E_modulus, nu, applied_force_val):
     return von_mises_stress, total_deflection, mesh_metrics
 
 def generate_ansys_contour_figure(verts, stress_field):
-    """Generates Static High-Res ANSYS Contour Plot for Report"""
+    """Generates Static High-Res ANSYS Contour Plot for Report safely matching shapes"""
     fig, ax = plt.subplots(figsize=(6, 3), facecolor='#0F172A')
     ax.set_facecolor('#0F172A')
     
     x = verts[:, 0]
     y = verts[:, 1]
     
-    sc = ax.scatter(x, y, c=stress_field, cmap='jet', s=10)
+    # Ensure exact size matching
+    min_len = min(len(x), len(stress_field))
+    x_safe = x[:min_len]
+    y_safe = y[:min_len]
+    stress_safe = stress_field[:min_len]
+    
+    sc = ax.scatter(x_safe, y_safe, c=stress_safe, cmap='jet', s=10)
     cbar = fig.colorbar(sc, ax=ax)
     cbar.ax.yaxis.set_tick_params(color='white')
     plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
@@ -184,7 +178,7 @@ def generate_ansys_contour_figure(verts, stress_field):
     buf.seek(0)
     return buf
 
-def generate_ansys_workbench_pdf(filename, project_name, author, E_mod, nu, force_val, stress_field, defl_field, metrics):
+def generate_ansys_workbench_pdf(filename, project_name, author, E_mod, nu, force_val, verts, stress_field, defl_field, metrics):
     """Generates 100% Authentic ANSYS Mechanical Engineering PDF Report"""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
@@ -277,7 +271,7 @@ def generate_ansys_workbench_pdf(filename, project_name, author, E_mod, nu, forc
     story.append(Paragraph("4. ANSYS Equivalent Stress Contour Distribution", styles['Heading2']))
     story.append(Spacer(1, 4))
 
-    contour_img_buf = generate_ansys_contour_figure(mesh.vertices if 'mesh' in locals() else np.random.rand(100,3), stress_field)
+    contour_img_buf = generate_ansys_contour_figure(verts, stress_field)
     story.append(Image(contour_img_buf, width=500, height=250))
     story.append(Paragraph("<i>Figure A1.1: ANSYS Mechanical Equivalent Stress (von-Mises) Nodal Contour Plot.</i>", styles['Italic']))
 
@@ -288,7 +282,7 @@ def generate_ansys_workbench_pdf(filename, project_name, author, E_mod, nu, forc
 st.markdown('<div class="ansys-header">A: Static Structural - Mechanical [ANSYS FEA Solver Engine]</div>', unsafe_allow_html=True)
 
 # TOP TOOLBAR
-t_col1, t_col2, t_col3, t_col4, t_col5, t_col6 = st.columns(6)
+t_col1, t_col2, t_col3, t_col4 = st.columns(4)
 with t_col1:
     show_mesh_wire = st.checkbox("🕸️ Wireframe", value=False)
 with t_col2:
@@ -421,6 +415,7 @@ with col_viewer:
             E_mod=youngs_mod,
             nu=poisson_ratio,
             force_val=applied_force,
+            verts=verts,
             stress_field=stress_field,
             defl_field=defl_field,
             metrics=mesh_metrics

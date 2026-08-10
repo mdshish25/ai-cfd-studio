@@ -9,7 +9,6 @@ import math
 import matplotlib.pyplot as plt
 import requests
 import json
-import streamlit.components.v1 as components
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
@@ -81,26 +80,22 @@ st.markdown("""
         background-color: #DC2626 !important;
     }
     
-    /* WHATSAPP STYLE FLOATING & DRAGGABLE CHAT CONTAINER STYLING */
+    /* WHATSAPP STYLE FLOATING & MOVEABLE CHAT CONTAINER STYLING */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) {
         position: fixed !important;
         bottom: 25px !important;
         left: 25px !important;
         z-index: 999999 !important;
         width: 480px !important;
-        background-color: #E5DDD5 !important; /* WhatsApp Chat Background */
+        max-width: 90vw !important;
+        background-color: #E5DDD5 !important;
         border: 2px solid #CBD5E1 !important;
         border-radius: 16px !important;
         padding: 18px 18px 10px 18px !important;
         box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4) !important;
         color: #0F172A !important;
-        overflow: hidden !important;
-    }
-
-    /* HEADER CURSOR FOR DRAGGING */
-    .drag-header {
-        cursor: move !important;
-        user-select: none !important;
+        resize: both !important;
+        overflow: auto !important;
     }
 
     /* REMOVE EXTRA BOTTOM SPACE / LINE UNDER INPUT BOX */
@@ -524,7 +519,7 @@ with col_details:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# DRAGGABLE FLOATING CHATBOT WIDGET
+# DRAGGABLE / MOVEABLE FLOATING CHATBOT WIDGET
 # ---------------------------------------------------------
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False
@@ -541,7 +536,7 @@ if st.session_state.chat_open:
         st.markdown('<div class="floating-chat-anchor"></div>', unsafe_allow_html=True)
         head_col1, head_col2 = st.columns([5, 1])
         with head_col1:
-            st.markdown("<div class='drag-header'><h2 style='color:#0F172A; margin:0; font-size:22px; font-weight:800; cursor:move;'>🤖 shish AI Assistant</h2></div>", unsafe_allow_html=True)
+            st.markdown("<h2 style='color:#0F172A; margin:0; font-size:22px; font-weight:800;'>🤖 shish AI Assistant</h2>", unsafe_allow_html=True)
         with head_col2:
             if st.button("─", help="Minimize Chat", key="minimize_chat_btn"):
                 st.session_state.chat_open = False
@@ -563,54 +558,3 @@ if st.session_state.chat_open:
             reply = query_shish_ai_permanent(user_input)
             st.session_state.messages.append({"role": "assistant", "content": reply})
             st.rerun()
-
-    # JavaScript Engine to Make the Chatbox Draggable via Header Drag
-    components.html("""
-    <script>
-        setTimeout(function() {
-            const parentDoc = window.parent.document;
-            const anchor = parentDoc.querySelector('div.floating-chat-anchor');
-            if (!anchor) return;
-            
-            const chatBox = anchor.closest('div[data-testid="stVerticalBlock"] > div');
-            if (!chatBox) return;
-
-            let isDragging = false;
-            let currentX, currentY, initialX, initialY;
-            let xOffset = 0, yOffset = 0;
-
-            const header = chatBox.querySelector('.drag-header') || chatBox;
-
-            header.addEventListener('mousedown', dragStart);
-            parentDoc.addEventListener('mouseup', dragEnd);
-            parentDoc.addEventListener('mousemove', drag);
-
-            function dragStart(e) {
-                initialX = e.clientX - xOffset;
-                initialY = e.clientY - yOffset;
-                if (e.target.closest('.drag-header')) {
-                    isDragging = true;
-                }
-            }
-
-            function dragEnd(e) {
-                initialX = currentX;
-                initialY = currentY;
-                isDragging = false;
-            }
-
-            function drag(e) {
-                if (isDragging) {
-                    e.preventDefault();
-                    currentX = e.clientX - initialX;
-                    currentY = e.clientY - initialY;
-
-                    xOffset = currentX;
-                    yOffset = currentY;
-
-                    chatBox.style.transform = "translate3d(" + currentX + "px, " + currentY + "px, 0)";
-                }
-            }
-        }, 1000);
-    </script>
-    """, height=0, width=0)

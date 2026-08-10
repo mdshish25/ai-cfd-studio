@@ -18,7 +18,7 @@ from reportlab.lib import colors
 # Streamlit Page Setup
 st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="collapsed")
 
-# CUSTOM WORKSTATION THEME & CLEAN WHITE FLOATING POP-UP CHATBOT STYLING
+# CUSTOM WORKSTATION THEME & FLOATING POP-UP CHATBOT STYLING
 st.markdown("""
 <style>
     .stApp {
@@ -58,16 +58,16 @@ st.markdown("""
     
     /* FLOATING BOTTOM-LEFT WHITE CHAT CONTAINER STYLING */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) {
-        position: fixed;
-        bottom: 25px;
-        left: 25px;
-        z-index: 99999;
-        width: 380px;
+        position: fixed !important;
+        bottom: 25px !important;
+        left: 25px !important;
+        z-index: 999999 !important;
+        width: 380px !important;
         background-color: #FFFFFF !important;
-        border: 1px solid #CBD5E1;
-        border-radius: 12px;
-        padding: 14px;
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 14px !important;
+        padding: 14px !important;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35) !important;
         color: #0F172A !important;
     }
 
@@ -88,12 +88,20 @@ st.markdown("""
         border: 1px solid #E2E8F0 !important;
     }
 
-    /* Floating Button Custom Position */
-    div.floating-chat-button {
-        position: fixed;
-        bottom: 25px;
-        left: 25px;
-        z-index: 999999;
+    /* FLOATING BUTTON FIXED CSS AT BOTTOM LEFT */
+    div.element-container:has(button[kind="primary"]) {
+        position: fixed !important;
+        bottom: 25px !important;
+        left: 25px !important;
+        z-index: 999999 !important;
+    }
+    
+    div.element-container:has(button[kind="primary"]) button {
+        border-radius: 25px !important;
+        padding: 10px 22px !important;
+        font-weight: 700 !important;
+        font-size: 15px !important;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.4) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -480,12 +488,10 @@ with col_details:
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False
 
-btn_col1, btn_col2 = st.columns([1, 20])
-with btn_col1:
-    if not st.session_state.chat_open:
-        if st.button("💬 shish AI", type="primary"):
-            st.session_state.chat_open = True
-            st.rerun()
+if not st.session_state.chat_open:
+    if st.button("💬 shish AI", type="primary"):
+        st.session_state.chat_open = True
+        st.rerun()
 
 if st.session_state.chat_open:
     with st.container():

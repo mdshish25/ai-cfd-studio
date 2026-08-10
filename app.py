@@ -13,13 +13,17 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-# Google Gemini SDK Import
+# Official Google GenAI SDK Import (New Standard)
 HAS_GENAI = False
 try:
-    import google.generativeai as genai
+    from google import genai
     HAS_GENAI = True
 except ImportError:
-    HAS_GENAI = False
+    try:
+        import google.generativeai as genai_old
+        HAS_GENAI = True
+    except ImportError:
+        HAS_GENAI = False
 
 # Streamlit Page Setup
 st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="expanded")
@@ -64,20 +68,16 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# GEMINI API INITIALIZATION WITH UPDATED MODEL FOR SHISH AI ENGINE
+# GEMINI API CLIENT INITIALIZATION FOR SHISH AI ENGINE
 api_key = st.secrets.get("GEMINI_API_KEY", None)
-model_ai = None
+client_ai = None
 
 if api_key and HAS_GENAI:
     try:
-        genai.configure(api_key=api_key)
-        # Standard updated Gemini Flash model initialization
-        model_ai = genai.GenerativeModel("gemini-1.5-flash")
+        from google import genai
+        client_ai = genai.Client(api_key=api_key)
     except Exception:
-        try:
-            model_ai = genai.GenerativeModel("gemini-1.5-pro")
-        except Exception:
-            model_ai = None
+        client_ai = None
 
 # MATERIAL LIBRARY DATABASE
 MATERIALS_DB = {
@@ -191,9 +191,9 @@ def generate_ansys_workbench_pdf(filename, project_name, author, physics_mode, m
 # SIDEBAR: SHISH AI ASSISTANT PANEL
 with st.sidebar:
     st.header("🤖 shish - AI Engineering Assistant")
-    st.caption("Powered by Gemini Engine")
+    st.caption("Powered by Gemini 2.5 Engine")
 
-    if api_key and model_ai:
+    if api_key and client_ai:
         st.success("🟢 Gemini API Active")
     else:
         st.error("🔴 Check GEMINI_API_KEY in Secrets")
@@ -213,13 +213,13 @@ with st.sidebar:
             st.write(user_input)
 
         reply = ""
-        if model_ai:
+        if client_ai:
             try:
-                prompt_text = (
-                    "You are shish, an expert engineering AI assistant and problem solver. "
-                    "Answer this query directly, accurately, and naturally in Hinglish/English: " + str(user_input)
+                # Official google.genai Client API call structure
+                res = client_ai.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents="You are shish, an expert engineering AI assistant and problem solver. Answer this query directly and accurately in Hinglish/English: " + str(user_input),
                 )
-                res = model_ai.generate_content(prompt_text)
                 reply = res.text
             except Exception as ex:
                 reply = f"API Execution Error: {str(ex)}"

@@ -18,7 +18,7 @@ from reportlab.lib import colors
 # Streamlit Page Setup
 st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="collapsed")
 
-# CUSTOM WORKSTATION THEME & ISOLATED FLOATING CHATBOT STYLING
+# CUSTOM WORKSTATION THEME & LARGER FLOATING POP-UP CHATBOT STYLING
 st.markdown("""
 <style>
     .stApp {
@@ -69,9 +69,9 @@ st.markdown("""
         color: #FFFFFF !important;
         border: none !important;
         border-radius: 25px !important;
-        padding: 12px 24px !important;
+        padding: 14px 28px !important;
         font-weight: 700 !important;
-        font-size: 15px !important;
+        font-size: 16px !important;
         box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4) !important;
         cursor: pointer !important;
     }
@@ -80,36 +80,39 @@ st.markdown("""
         background-color: #DC2626 !important;
     }
     
-    /* FLOATING BOTTOM-LEFT WHITE CHAT CONTAINER STYLING */
+    /* LARGER FLOATING BOTTOM-LEFT WHITE CHAT CONTAINER STYLING */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) {
         position: fixed !important;
         bottom: 25px !important;
         left: 25px !important;
         z-index: 999999 !important;
-        width: 380px !important;
+        width: 480px !important;
         background-color: #FFFFFF !important;
-        border: 1px solid #CBD5E1 !important;
-        border-radius: 14px !important;
-        padding: 14px !important;
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35) !important;
+        border: 2px solid #CBD5E1 !important;
+        border-radius: 16px !important;
+        padding: 18px !important;
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4) !important;
         color: #0F172A !important;
     }
 
-    /* WHITE CHATBOX INNER TEXT & BOLD STYLING */
+    /* CLEAR, BOLDER & LARGER TEXT STYLING FOR CHAT */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) p,
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) span,
+    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) li,
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div {
         color: #0F172A !important;
         font-weight: 600 !important;
+        font-size: 15px !important;
+        line-height: 1.6 !important;
     }
 
     /* Chat Messages Backgrounds */
     div[data-testid="stChatMessage"] {
         background-color: #F1F5F9 !important;
-        border-radius: 8px !important;
-        padding: 8px 12px !important;
-        margin-bottom: 8px !important;
-        border: 1px solid #E2E8F0 !important;
+        border-radius: 10px !important;
+        padding: 12px 16px !important;
+        margin-bottom: 10px !important;
+        border: 1px solid #CBD5E1 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -492,7 +495,7 @@ with col_details:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# BOTTOM-LEFT FLOATING POP-UP CHATBOT WIDGET
+# BOTTOM-LEFT FLOATING POP-UP CHATBOT WIDGET (LARGER & CLEAR)
 # ---------------------------------------------------------
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False
@@ -507,9 +510,9 @@ if not st.session_state.chat_open:
 if st.session_state.chat_open:
     with st.container():
         st.markdown('<div class="floating-chat-anchor"></div>', unsafe_allow_html=True)
-        head_col1, head_col2 = st.columns([4, 1])
+        head_col1, head_col2 = st.columns([5, 1])
         with head_col1:
-            st.markdown("<h4 style='color:#0F172A; margin:0;'>🤖 shish AI Assistant</h4>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color:#0F172A; margin:0; font-size:18px;'>🤖 shish AI Assistant</h3>", unsafe_allow_html=True)
         with head_col2:
             if st.button("─", help="Minimize Chat", key="minimize_chat_btn"):
                 st.session_state.chat_open = False
@@ -520,7 +523,7 @@ if st.session_state.chat_open:
                 {"role": "assistant", "content": "Hello! I am **Shish**. You can ask any question!"}
             ]
 
-        chat_container = st.container(height=320)
+        chat_container = st.container(height=420)
         with chat_container:
             for msg in st.session_state.messages:
                 with st.chat_message(msg["role"]):

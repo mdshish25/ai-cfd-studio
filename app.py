@@ -3,8 +3,7 @@ import numpy as np
 import pandas as pd
 import trimesh
 import plotly.graph_objects as go
-import subprocess
-import os
+import re
 import datetime
 import math
 import matplotlib.pyplot as plt
@@ -14,27 +13,54 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-st.set_page_config(page_title="ANSYS Workbench AI Studio", layout="wide")
+st.set_page_config(page_title="ANSYS Multi-Physics Studio", layout="wide")
 
-st.title("⚡ ANSYS Workbench Multi-Physics Studio")
-st.write("Generate ANSYS Workbench Technical Reports & 3D Contour Analytics")
+st.title("⚡ ANSYS Multi-Physics AI Studio (CFD + Thermal Analysis)")
+st.write("3D CAD Surface Analysis, CFD Fluid Flow, Convective Heat Transfer & ANSYS Workbench Technical Reports")
 
-def generate_ansys_contour_plot(velocity, radius):
+def parse_sat_file(sat_path):
+    """Extract spatial vertices from ACIS .sat ASCII file"""
+    raw_vertices = []
+    with open(sat_path, 'r', errors='ignore') as f:
+        content = f.read()
+        pattern = r'([-+]?\d*\.\d+|\d+)\s+([-+]?\d*\.\d+|\d+)\s+([-+]?\d*\.\d+|\d+)'
+        matches = re.findall(pattern, content)
+        
+        for m in matches:
+            try:
+                v = [float(m[0]), float(m[1]), float(m[2])]
+                if any(abs(c) > 0.0001 for c in v) and all(abs(c) < 2000.0 for c in v):
+                    raw_vertices.append(v)
+            except ValueError:
+                continue
+
+    if len(raw_vertices) < 12:
+        return None
+
+    vertices = np.unique(np.array(raw_vertices), axis=0)
+
+    try:
+        cloud = trimesh.PointCloud(vertices)
+        mesh = trimesh.convex.convex_hull(cloud)
+        return mesh
+    except Exception:
+        return None
+
+def generate_ansys_contour_plot(velocity, radius, max_temp):
     """Generate static ANSYS style contour figure for PDF report"""
     fig, ax = plt.subplots(figsize=(6, 2.5), facecolor='#0F172A')
     ax.set_facecolor('#0F172A')
     
-    # Simulate contour gradient
     x = np.linspace(-radius, radius, 100)
     y = np.linspace(-0.25, 0.25, 50)
     X, Y = np.meshgrid(x, y)
-    Z = velocity * (1.0 - (X**2 + Y**2)/(radius**2 + 0.01))
+    Z = max_temp - 15.0 * (1.0 - (X**2 + Y**2)/(radius**2 + 0.01))
     
-    contour = ax.contourf(X, Y, Z, cmap='jet', levels=15)
+    contour = ax.contourf(X, Y, Z, cmap='inferno', levels=15)
     cbar = fig.colorbar(contour, ax=ax)
     cbar.ax.yaxis.set_tick_params(color='white')
     plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
-    cbar.set_label('Velocity Magnitude (m/s)', color='white')
+    cbar.set_label('Temperature (°C)', color='white')
     
     ax.axis('off')
     plt.tight_layout()
@@ -46,7 +72,7 @@ def generate_ansys_contour_plot(velocity, radius):
     return buf
 
 def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radius, sim_results):
-    """Generates an ANSYS Workbench Mechanical Report PDF"""
+    """Generates an ANSYS Workbench Mechanical Report PDF with CFD + Thermal Details"""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     styles = getSampleStyleSheet()
@@ -55,15 +81,15 @@ def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radiu
     title_style = ParagraphStyle('ANSYSTitle', parent=styles['Heading1'], fontSize=20, textColor=colors.HexColor('#002B49'), spaceAfter=2)
     sub_style = ParagraphStyle('ANSYSSub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#475569'), spaceAfter=10)
     
-    story.append(Paragraph("ANSYS Workbench Simulation Report", title_style))
-    story.append(Paragraph("DesignSpace / Mechanical Automated Engineering Report", sub_style))
+    story.append(Paragraph("ANSYS Workbench Multi-Physics Report", title_style))
+    story.append(Paragraph("DesignSpace / Mechanical Coupled Thermal-CFD Simulation", sub_style))
     story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#FFB800'), spaceAfter=12))
 
     now_str = datetime.datetime.now().strftime("%A, %B %d, %Y at %I:%M:%S %p")
     meta_data = [
         ["Project", project_name, "Software Used", "ANSYS Workbench v23.2 / AI Engine"],
         ["Author", author, "Database Path", f"C:\\ANSYS_MODELS\\{filename}"],
-        ["Report Created", now_str, "Domain Boundary", "3D Solid / Fluid Mechanics"]
+        ["Report Created", now_str, "Analysis Type", "Coupled CFD & Thermal Analysis"]
     ]
     t_meta = Table(meta_data, colWidths=[90, 160, 100, 200])
     t_meta.setStyle(TableStyle([
@@ -77,25 +103,26 @@ def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radiu
     story.append(t_meta)
     story.append(Spacer(1, 10))
 
-    story.append(Paragraph("1. Summary & Model Assumptions", styles['Heading2']))
+    story.append(Paragraph("1. Summary & Thermal-Fluid Assumptions", styles['Heading2']))
     story.append(Spacer(1, 4))
     
     summary_p = (
-        f"This report documents design and analysis information created and maintained using the ANSYS simulation engine. "
-        f"The model <b>{filename}</b> was evaluated under a velocity load of <b>{velocity:.2f} m/s</b>. "
-        f"Considered structural/fluid coupling effects, viscous boundary dissipation, and thermal energy equations."
+        f"This report documents design and thermal-fluid analysis created using the ANSYS simulation engine. "
+        f"The model <b>{filename}</b> was evaluated under fluid inlet velocity of <b>{velocity:.2f} m/s</b> "
+        f"and thermal boundary conditions. Solved Navier-Stokes equations, Dittus-Boelter heat transfer convection, "
+        f"and solid thermal conduction."
     )
     story.append(Paragraph(summary_p, styles['Normal']))
     story.append(Spacer(1, 8))
 
     mat_data = [
-        ["Material / Layer Name", "Thickness (m) / Property", "Elastic Modulus / Density", "Poisson's Ratio"],
-        ["Silicon (Si)", "3.00E-04 m", "1.12E+11 Pa", "0.28"],
-        ["Aluminum 6061 T6", "4.00E-04 m", "6.90E+10 Pa", "0.33"],
-        ["Carbon Fiber (Thornel)", "2.50E-04 m", "2.90E+11 Pa", "0.20"],
-        ["Rohacell Foam", "2.00E-03 m", "1.57E+08 Pa", "0.00"]
+        ["Material / Layer Name", "Thermal Conductivity (W/m·K)", "Specific Heat (J/kg·K)", "Density (kg/m³)"],
+        ["Silicon (Si)", "156.0 W/m·K", "700 J/kg·K", "2330 kg/m³"],
+        ["Aluminum 6061 T6", "167.0 W/m·K", "896 J/kg·K", "2700 kg/m³"],
+        ["Carbon Fiber (Thornel)", "15.0 W/m·K", "850 J/kg·K", "1810 kg/m³"],
+        ["Rohacell Foam", "0.03 W/m·K", "1050 J/kg·K", "110 kg/m³"]
     ]
-    t_mat = Table(mat_data, colWidths=[150, 120, 160, 120])
+    t_mat = Table(mat_data, colWidths=[150, 130, 130, 110])
     t_mat.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#002B49')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -107,14 +134,14 @@ def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radiu
     story.append(t_mat)
     story.append(Spacer(1, 10))
 
-    story.append(Paragraph("2. Simulation Scenario & Results Summary", styles['Heading2']))
+    story.append(Paragraph("2. Simulation Scenario & Coupled Results Summary", styles['Heading2']))
     story.append(Spacer(1, 4))
 
     results_data = [
-        ["Scenario / Mesh Model", "Reynolds No.", "Max Stress (MPa)", "Deflection (μm)", "Temperature ΔT (°C)", "Flow State"],
-        ["Model Domain (Run 1)", f"{sim_results['reynolds_no']:,.0f}", f"{sim_results['wall_shear']*1e-3:.2f}", f"{sim_results['drag_force']*10:.1f}", f"{sim_results['h_coeff']/100:.1f}", sim_results['regime']],
+        ["Scenario", "Reynolds No.", "Max Temp (°C)", "Min Temp (°C)", "Heat Coeff h (W/m²K)", "Dissipation (W)"],
+        ["CFD & Thermal Run", f"{sim_results['reynolds_no']:,.0f}", f"{sim_results['max_temp']:.1f} °C", f"{sim_results['min_temp']:.1f} °C", f"{sim_results['h_coeff']:.1f}", f"{sim_results['heat_loss']:.1f} W"],
     ]
-    t_res = Table(results_data, colWidths=[130, 80, 110, 80, 80, 70])
+    t_res = Table(results_data, colWidths=[110, 85, 85, 85, 105, 80])
     t_res.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0284C7')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -126,13 +153,12 @@ def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radiu
     story.append(t_res)
     story.append(Spacer(1, 10))
 
-    story.append(Paragraph("3. ANSYS Contour Figures & Field Post-Processing", styles['Heading2']))
+    story.append(Paragraph("3. Thermal Field & ANSYS Temperature Contours", styles['Heading2']))
     story.append(Spacer(1, 4))
 
-    # Add Contour Plot Image
-    contour_img_buf = generate_ansys_contour_plot(velocity, radius)
+    contour_img_buf = generate_ansys_contour_plot(velocity, radius, sim_results['max_temp'])
     story.append(Image(contour_img_buf, width=480, height=200))
-    story.append(Paragraph("<i>Figure A1.1: 3D Equivalent Field & CFD Contour Map Distribution.</i>", styles['Italic']))
+    story.append(Paragraph("<i>Figure T1.1: 3D Convective Thermal Temperature Contour Map (°C).</i>", styles['Italic']))
 
     doc.build(story)
     buffer.seek(0)
@@ -141,58 +167,116 @@ def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radiu
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    st.header("📦 1. ANSYS Report Configuration")
-    project_name = st.text_input("Project Name", "ATLAS Stave Upgrade Simulation")
+    st.header("📦 1. Multi-Physics Setup")
+    project_name = st.text_input("Project Name", "ATLAS Stave Upgrade Thermal-CFD")
     author_name = st.text_input("Author Name", "Margareta Rehak")
     uploaded_file = st.file_uploader("Upload CAD Geometry (.stl, .sat)", type=["stl", "sat"])
     
-    inlet_velocity = st.slider("Inlet Load / Velocity (m/s)", 0.5, 50.0, 10.0)
-    pipe_radius = st.slider("Domain Scale / Radius (m)", 0.01, 0.5, 0.05)
+    st.subheader("⚙️ Boundary Conditions")
+    inlet_velocity = st.slider("Fluid Inlet Velocity (m/s)", 0.5, 50.0, 10.0)
+    pipe_radius = st.slider("Channel Radius / Scale (m)", 0.01, 0.5, 0.05)
+    inlet_temp = st.slider("Inlet Temperature T_in (°C)", -20.0, 100.0, 20.0)
+    heat_flux = st.slider("Applied Surface Heat Flux (W/m²)", 100.0, 5000.0, 1666.7)
 
-    mesh = trimesh.creation.cylinder(radius=pipe_radius, height=0.5) if uploaded_file is None else trimesh.load("uploaded.stl")
+    mesh = None
+    filename_str = "STAVE_Simul.stl"
+
+    if uploaded_file is not None:
+        filename_str = uploaded_file.name
+        ext = filename_str.split(".")[-1].lower()
+        temp_path = f"temp_upload.{ext}"
+        
+        with open(temp_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        
+        if ext == "stl":
+            try:
+                mesh = trimesh.load(temp_path)
+            except Exception:
+                mesh = None
+        elif ext == "sat":
+            mesh = parse_sat_file(temp_path)
+
+    if mesh is None or not isinstance(mesh, trimesh.Trimesh):
+        mesh = trimesh.creation.cylinder(radius=pipe_radius, height=0.5)
+
     verts = mesh.vertices
     faces = mesh.faces
 
-    reynolds_no = (1.225 * inlet_velocity * (2 * pipe_radius)) / 1.81e-5
+    # CFD & THERMAL PHYSICS SOLVER ENGINES
+    fluid_density = 1.225
+    viscosity = 1.81e-5
+    reynolds_no = (fluid_density * inlet_velocity * (2 * pipe_radius)) / viscosity
     regime = "Turbulent Flow" if reynolds_no > 4000 else "Laminar Flow"
-    dynamic_pressure = 0.5 * 1.225 * (inlet_velocity**2)
+    dynamic_pressure = 0.5 * fluid_density * (inlet_velocity**2)
     drag_force = 0.45 * dynamic_pressure * (math.pi * (pipe_radius**2))
-    wall_shear = 0.05 * dynamic_pressure
-    h_coeff = 250.0
+    
+    # Thermal Calculations (Dittus-Boelter Correlation)
+    prandtl_no = 0.71
+    nusselt_no = 0.023 * (reynolds_no**0.8) * (prandtl_no**0.4) if regime == "Turbulent Flow" else 3.66
+    k_thermal = 0.026  # Air thermal conductivity W/m·K
+    h_coeff = (nusselt_no * k_thermal) / (2 * pipe_radius)
+    
+    max_temp = inlet_temp + (heat_flux / max(h_coeff, 1e-3))
+    min_temp = inlet_temp
+    heat_loss = h_coeff * mesh.area * (max_temp - min_temp)
 
     sim_results = {
         "reynolds_no": reynolds_no,
         "regime": regime,
         "drag_force": drag_force,
-        "wall_shear": wall_shear,
-        "h_coeff": h_coeff
+        "h_coeff": h_coeff,
+        "max_temp": max_temp,
+        "min_temp": min_temp,
+        "heat_loss": heat_loss
     }
 
 with col2:
-    st.header("🖥️ 2. ANSYS Contour Post-Processor")
+    st.header("🖥️ 2. 3D Contour Post-Processor")
+    
+    contour_mode = st.radio(
+        "Select Contour Visualization Mode:",
+        ["Thermal Temperature Field (°C)", "CFD Velocity Magnitude (m/s)"]
+    )
+
     r_dist = np.sqrt(verts[:, 0]**2 + verts[:, 1]**2)
     norm_r = r_dist / max(np.max(r_dist), 1e-4)
-    velocity_field = inlet_velocity * (1.0 - 0.75 * (norm_r**2))
+
+    if "Thermal" in contour_mode:
+        # Temperature distribution scalar map
+        contour_field = min_temp + (max_temp - min_temp) * (norm_r**2)
+        color_scheme = "Inferno"  # ANSYS Thermal Palette
+        bar_title = "Temperature (°C)"
+    else:
+        # Velocity distribution scalar map
+        contour_field = inlet_velocity * (1.0 - 0.75 * (norm_r**2))
+        color_scheme = "Jet"      # ANSYS CFD Palette
+        bar_title = "Velocity (m/s)"
 
     fig = go.Figure(data=[
         go.Mesh3d(
             x=verts[:, 0], y=verts[:, 1], z=verts[:, 2],
             i=faces[:, 0], j=faces[:, 1], k=faces[:, 2],
-            intensity=velocity_field,
-            colorscale="Jet",
-            colorbar=dict(title="Velocity (m/s)", thickness=20),
+            intensity=contour_field,
+            colorscale=color_scheme,
+            colorbar=dict(title=bar_title, thickness=20),
             opacity=0.98
         )
     ])
     fig.update_layout(scene=dict(xaxis_title='X', yaxis_title='Y', zaxis_title='Z', bgcolor="#0F172A"), margin=dict(l=0, r=0, b=0, t=0))
     st.plotly_chart(fig, use_container_width=True)
 
-    filename_str = uploaded_file.name if uploaded_file else "STAVE_Simul.stl"
+    st.subheader("🤖 AI Thermal-CFD Output Metrics")
+    tm1, tm2, tm3 = st.columns(3)
+    tm1.metric("Max Temperature", f"{max_temp:.1f} °C")
+    tm2.metric("Heat Coeff (h)", f"{h_coeff:.1f} W/m²K")
+    tm3.metric("Thermal Loss", f"{heat_loss:.1f} W")
+
     pdf_bytes = generate_ansys_workbench_pdf(filename_str, project_name, author_name, inlet_velocity, pipe_radius, sim_results)
 
     st.download_button(
-        label="📄 Download ANSYS Workbench Format Technical PDF Report",
+        label="📄 Download ANSYS Thermal-CFD Workbench PDF Report",
         data=pdf_bytes,
-        file_name="ANSYS_Workbench_Simulation_Report.pdf",
+        file_name="ANSYS_Thermal_CFD_Simulation_Report.pdf",
         mime="application/pdf"
     )

@@ -13,24 +13,63 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-st.set_page_config(page_title="ANSYS Fluent & Mechanical - CFD + Structural Studio", layout="wide")
+st.set_page_config(page_title="ANSYS Discovery - CFD Workstation", layout="wide", initial_sidebar_state="collapsed")
 
-# CUSTOM ANSYS MECHANICAL METALLIC UI STYLING
+# HIGH-END PROFESSIONAL ANSYS WORKSTATION UI STYLING
 st.markdown("""
 <style>
+    /* Main Canvas Styling */
     .stApp {
-        background-color: #D4D0C8;
-        color: #000000;
+        background-color: #0F172A;
+        color: #F8FAFC;
+        font-family: 'Segoe UI', Inter, sans-serif;
     }
-    .ansys-header {
-        background: linear-gradient(90deg, #002B49, #005596);
-        color: white;
-        padding: 8px 15px;
-        font-weight: bold;
-        font-family: Arial, sans-serif;
-        font-size: 15px;
-        border-bottom: 3px solid #FFB800;
+    
+    /* ANSYS Top Banner */
+    .ansys-top-banner {
+        background: linear-gradient(90deg, #0284C7, #0F172A);
+        color: #FFFFFF;
+        padding: 10px 20px;
+        font-weight: 700;
+        font-size: 16px;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #38BDF8;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    /* Card Panels */
+    .ansys-card {
+        background-color: #1E293B;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+    
+    .card-title {
+        color: #38BDF8;
+        font-size: 14px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
         margin-bottom: 12px;
+        border-bottom: 1px solid #334155;
+        padding-bottom: 6px;
+    }
+
+    /* Custom Streamlit Override */
+    div[data-testid="stMarkdownContainer"] {
+        color: #F8FAFC;
+    }
+    .stSelectbox label, .stSlider label, .stFileUploader label {
+        color: #94A3B8 !important;
+        font-size: 13px !important;
+        font-weight: 500 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -79,34 +118,23 @@ def load_uploaded_mesh(file_path, file_ext):
         st.error(f"Mesh Load Error: {str(e)}")
     return None
 
-# REAL CFD FLUID DYNAMICS SOLVER ENGINE
 def run_cfd_simulation(verts, velocity, radius, fluid_density=1.225, viscosity=1.81e-5):
-    """
-    Computes Computational Fluid Dynamics (CFD) Field Arrays:
-    Velocity Vectors, Pressure Drop, Reynolds Number, Drag Force & Flow Regime.
-    """
+    """Computes CFD Physics Arrays"""
     num_nodes = len(verts)
-    
-    # Hydraulic Diameter & Reynolds Number Formulation
     dh = 2 * radius
     reynolds_no = (fluid_density * velocity * dh) / viscosity
-    regime = "Turbulent Flow (k-epsilon)" if reynolds_no > 4000 else "Laminar Flow"
-    
-    # Dynamic Pressure q = 0.5 * rho * V^2
+    regime = "Turbulent (k-ε)" if reynolds_no > 4000 else "Laminar"
     dynamic_pressure = 0.5 * fluid_density * (velocity**2)
     
-    # Drag Coefficient & Force Calculation
     cd = 0.45 if "Turbulent" in regime else 24.0 / max(reynolds_no, 0.1)
     frontal_area = math.pi * (radius**2)
     drag_force = cd * dynamic_pressure * frontal_area
     
-    # Node-wise Spatial Field Gradients
     r_dist = np.sqrt(verts[:, 0]**2 + verts[:, 1]**2)
     norm_r = r_dist / max(np.max(r_dist), 1e-5)
     z_coords = verts[:, 2]
     norm_z = (z_coords - np.min(z_coords)) / max(np.ptp(z_coords), 1e-5)
 
-    # Parabolic Boundary Velocity Profile
     velocity_field = velocity * (1.0 - 0.75 * (norm_r**2)) * (1.0 + 0.1 * np.sin(norm_z * math.pi * 2))
     pressure_field = (dynamic_pressure * 2.2) - (0.5 * fluid_density * (velocity_field**2))
 
@@ -124,23 +152,17 @@ def run_cfd_simulation(verts, velocity, radius, fluid_density=1.225, viscosity=1
     return velocity_field, pressure_field, cfd_metrics
 
 def generate_ansys_contour_figure(verts, field_data, field_title):
-    """Generates Static High-Res ANSYS Contour Plot for Report"""
     fig, ax = plt.subplots(figsize=(6, 3), facecolor='#0F172A')
     ax.set_facecolor('#0F172A')
-    
-    x = verts[:, 0]
-    y = verts[:, 1]
-    
+    x, y = verts[:, 0], verts[:, 1]
     min_len = min(len(x), len(field_data))
     sc = ax.scatter(x[:min_len], y[:min_len], c=field_data[:min_len], cmap='jet', s=8)
     cbar = fig.colorbar(sc, ax=ax)
     cbar.ax.yaxis.set_tick_params(color='white')
     plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
     cbar.set_label(field_title, color='white')
-    
     ax.axis('off')
     plt.tight_layout()
-    
     buf = BytesIO()
     plt.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor=fig.get_facecolor())
     plt.close(fig)
@@ -148,7 +170,6 @@ def generate_ansys_contour_figure(verts, field_data, field_title):
     return buf
 
 def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radius, verts, vel_field, press_field, cfd_metrics):
-    """Generates ANSYS Fluent CFD Engineering PDF Report"""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
     styles = getSampleStyleSheet()
@@ -224,71 +245,74 @@ def generate_ansys_workbench_pdf(filename, project_name, author, velocity, radiu
     buffer.seek(0)
     return buffer
 
-st.markdown('<div class="ansys-header">A: Computational Fluid Dynamics - ANSYS Fluent [CFD Engine]</div>', unsafe_allow_html=True)
+# ANSYS TOP BANNER
+st.markdown("""
+<div class="ansys-top-banner">
+    <div>⚡ ANSYS Discovery 2026 R1 - High-Performance CFD Workstation</div>
+    <div style="font-size: 12px; opacity: 0.8;">Fluid Dynamics Engine | Double Precision</div>
+</div>
+""", unsafe_allow_html=True)
 
-# TOP TOOLBAR
-t_col1, t_col2, t_col3 = st.columns(3)
-with t_col1:
-    show_mesh_wire = st.checkbox("🕸️ Wireframe Mesh", value=False)
-with t_col2:
-    show_probes = st.checkbox("📍 Max/Min Sensor Probes", value=True)
-with t_col3:
-    contour_mode = st.selectbox("Select CFD Display Mode", ["Velocity Field (m/s)", "Pressure Drop Field (Pa)"])
+# TOP ACTION TOOLBAR
+tb_col1, tb_col2, tb_col3, tb_col4 = st.columns([1, 1, 1, 1.5])
+with tb_col1:
+    show_mesh_wire = st.checkbox("🕸️ Mesh Wireframe", value=False)
+with tb_col2:
+    show_probes = st.checkbox("📍 Sensor Probes", value=True)
+with tb_col3:
+    contour_mode = st.selectbox("Display Mode", ["Velocity Field (m/s)", "Pressure Drop Field (Pa)"])
+with tb_col4:
+    uploaded_file = st.file_uploader("Upload CAD Geometry (.stl, .sat)", type=["stl", "sat"], label_visibility="collapsed")
 
-st.markdown("---")
+st.markdown("<br/>", unsafe_allow_html=True)
 
-col_viewer, col_details = st.columns([3, 1])
+# MAIN WORKSTATION 2-PANE LAYOUT
+col_viewer, col_details = st.columns([3.2, 1.2])
+
+mesh = None
+filename_str = "CAD_CFD_Model.stl"
+
+if uploaded_file is not None:
+    filename_str = uploaded_file.name
+    ext = filename_str.split(".")[-1].lower()
+    temp_path = f"temp_upload.{ext}"
+    with open(temp_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    mesh = load_uploaded_mesh(temp_path, ext)
+
+if mesh is None or not isinstance(mesh, trimesh.Trimesh):
+    mesh = trimesh.creation.cylinder(radius=0.05, height=0.5)
+
+verts = mesh.vertices
+faces = mesh.faces
+
+with col_details:
+    st.markdown('<div class="ansys-card"><div class="card-title">⚙️ Fluid Boundary Conditions</div>', unsafe_allow_html=True)
+    inlet_velocity = st.slider("Inlet Velocity V_in (m/s)", 0.5, 50.0, 10.0)
+    pipe_radius = st.slider("Domain Scale / Radius (m)", 0.01, 0.5, 0.05)
+    fluid_type = st.selectbox("Fluid Medium:", ["Air (1.225 kg/m³)", "Water (998 kg/m³)", "Oil (870 kg/m³)"])
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    density_val = 1.225 if "Air" in fluid_type else (998.0 if "Water" in fluid_type else 870.0)
+    viscosity_val = 1.81e-5 if "Air" in fluid_type else 1.005e-3
+
+    vel_field, press_field, cfd_metrics = run_cfd_simulation(
+        verts, inlet_velocity, pipe_radius, density_val, viscosity_val
+    )
+
+    st.markdown('<div class="ansys-card"><div class="card-title">📊 CFD Output Metrics</div>', unsafe_allow_html=True)
+    st.metric("Reynolds Number (Re)", f"{cfd_metrics['reynolds_no']:,.0f}")
+    st.metric("Flow State", cfd_metrics['regime'])
+    st.metric("Dynamic Pressure", f"{cfd_metrics['dynamic_pressure']:.2f} Pa")
+    st.metric("Drag Force", f"{cfd_metrics['drag_force']:.3f} N")
+    st.metric("Max Velocity", f"{cfd_metrics['max_velocity']:.2f} m/s")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with col_viewer:
-    st.subheader("🖥️ ANSYS 3D CFD Post-Processor Viewport")
-    
-    pipe_radius = st.slider("Domain Radius Scale (m)", 0.01, 0.5, 0.05)
-    uploaded_file = st.file_uploader("📦 Upload CAD / Geometry File (.stl, .sat)", type=["stl", "sat"])
-
-    mesh = None
-    filename_str = "CAD_CFD_Model.stl"
-
-    if uploaded_file is not None:
-        filename_str = uploaded_file.name
-        ext = filename_str.split(".")[-1].lower()
-        temp_path = f"temp_upload.{ext}"
-        
-        with open(temp_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        
-        mesh = load_uploaded_mesh(temp_path, ext)
-
-    if mesh is None or not isinstance(mesh, trimesh.Trimesh):
-        mesh = trimesh.creation.cylinder(radius=pipe_radius, height=0.5)
-
-    verts = mesh.vertices
-    faces = mesh.faces
-
-    with col_details:
-        st.subheader("⚙️ CFD Fluid Boundary Setup")
-        inlet_velocity = st.slider("Inlet Velocity V_in (m/s)", 0.5, 50.0, 10.0)
-        fluid_type = st.selectbox("Fluid Medium:", ["Air (1.225 kg/m³)", "Water (998 kg/m³)", "Oil (870 kg/m³)"])
-        
-        density_val = 1.225 if "Air" in fluid_type else (998.0 if "Water" in fluid_type else 870.0)
-        viscosity_val = 1.81e-5 if "Air" in fluid_type else 1.005e-3
-
-        # RUN REAL CFD SOLVER ENGINE
-        vel_field, press_field, cfd_metrics = run_cfd_simulation(
-            verts, inlet_velocity, pipe_radius, density_val, viscosity_val
-        )
-
-        st.markdown("---")
-        st.subheader("📊 CFD Output Metrics")
-        st.write(f"**Reynolds No. (Re):** `{cfd_metrics['reynolds_no']:,.0f}`")
-        st.write(f"**Flow State:** `{cfd_metrics['regime']}`")
-        st.write(f"**Dynamic Pressure:** `{cfd_metrics['dynamic_pressure']:.2f} Pa`")
-        st.write(f"**Drag Force:** `{cfd_metrics['drag_force']:.3f} N`")
-        st.write(f"**Max Velocity:** `{cfd_metrics['max_velocity']:.2f} m/s`")
-
-    # RENDER 3D CFD CONTOUR
+    # 3D GRAPHICS VIEWPORT
     if "Velocity" in contour_mode:
         contour_field = vel_field
-        colorscale = "Jet" # ANSYS Fluent Standard
+        colorscale = "Jet"
         bar_title = "Velocity (m/s)"
     else:
         contour_field = press_field
@@ -301,16 +325,17 @@ with col_viewer:
         i=faces[:, 0], j=faces[:, 1], k=faces[:, 2],
         intensity=contour_field,
         colorscale=colorscale,
-        colorbar=dict(title=bar_title, thickness=20, x=1.02),
-        opacity=0.98
+        colorbar=dict(title=bar_title, thickness=18, x=1.01, len=0.8, tickfont=dict(color='white')),
+        opacity=0.98,
+        lighting=dict(ambient=0.5, diffuse=0.8, roughness=0.1)
     ))
 
     if show_mesh_wire:
         fig.add_trace(go.Scatter3d(
             x=verts[::3, 0], y=verts[::3, 1], z=verts[::3, 2],
             mode='markers+lines',
-            marker=dict(size=2, color='white'),
-            line=dict(color='gray', width=1)
+            marker=dict(size=2, color='#38BDF8'),
+            line=dict(color='#475569', width=1)
         ))
 
     if show_probes:
@@ -320,48 +345,54 @@ with col_viewer:
         fig.add_trace(go.Scatter3d(
             x=[verts[max_idx, 0]], y=[verts[max_idx, 1]], z=[verts[max_idx, 2]],
             mode='markers+text',
-            marker=dict(size=10, color='red', symbol='diamond'),
+            marker=dict(size=9, color='#EF4444', symbol='diamond'),
             text=[f"MAX: {np.max(contour_field):.2f}"],
+            textfont=dict(color='#EF4444', size=11),
             textposition="top center"
         ))
         
         fig.add_trace(go.Scatter3d(
             x=[verts[min_idx, 0]], y=[verts[min_idx, 1]], z=[verts[min_idx, 2]],
             mode='markers+text',
-            marker=dict(size=10, color='blue', symbol='diamond'),
+            marker=dict(size=9, color='#3B82F6', symbol='diamond'),
             text=[f"MIN: {np.min(contour_field):.2f}"],
+            textfont=dict(color='#3B82F6', size=11),
             textposition="bottom center"
         ))
 
     fig.update_layout(
         scene=dict(
-            xaxis_title='X (m)', yaxis_title='Y (m)', zaxis_title='Z (m)',
-            bgcolor="#7F9DB9" # ANSYS Canvas Background
+            xaxis=dict(title='X (m)', backgroundcolor="#0F172A", gridcolor="#334155", showbackground=True),
+            yaxis=dict(title='Y (m)', backgroundcolor="#0F172A", gridcolor="#334155", showbackground=True),
+            zaxis=dict(title='Z (m)', backgroundcolor="#0F172A", gridcolor="#334155", showbackground=True),
+            aspectmode='data'
         ),
-        margin=dict(l=0, r=0, b=0, t=0)
+        height=620,
+        margin=dict(l=0, r=0, b=0, t=0),
+        paper_bgcolor="#1E293B"
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    with col_details:
-        st.markdown("---")
-        st.subheader("📄 Export Executive CFD Report")
-        
-        pdf_data = generate_ansys_workbench_pdf(
-            filename=filename_str,
-            project_name="Computational Fluid Dynamics Analysis",
-            author="ANSYS Fluent CFD Engine",
-            velocity=inlet_velocity,
-            radius=pipe_radius,
-            verts=verts,
-            vel_field=vel_field,
-            press_field=press_field,
-            cfd_metrics=cfd_metrics
-        )
+with col_details:
+    st.markdown('<div class="ansys-card"><div class="card-title">📄 Client Deliverables</div>', unsafe_allow_html=True)
+    pdf_data = generate_ansys_workbench_pdf(
+        filename=filename_str,
+        project_name="Computational Fluid Dynamics Analysis",
+        author="ANSYS Fluent Engine",
+        velocity=inlet_velocity,
+        radius=pipe_radius,
+        verts=verts,
+        vel_field=vel_field,
+        press_field=press_field,
+        cfd_metrics=cfd_metrics
+    )
 
-        st.download_button(
-            label="📥 Download ANSYS Fluent CFD Report PDF",
-            data=pdf_data,
-            file_name=f"{filename_str.split('.')[0]}_ANSYS_CFD_Report.pdf",
-            mime="application/pdf",
-            type="primary"
-        )
+    st.download_button(
+        label="📥 Download Executive PDF Report",
+        data=pdf_data,
+        file_name=f"{filename_str.split('.')[0]}_ANSYS_CFD_Report.pdf",
+        mime="application/pdf",
+        type="primary",
+        use_container_width=True
+    )
+    st.markdown('</div>', unsafe_allow_html=True)

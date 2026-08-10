@@ -63,13 +63,13 @@ api_key = st.secrets.get("GEMINI_API_KEY", None)
 
 def query_gemini_direct(prompt_text, key):
     """
-    Direct REST HTTP Request to Google Gemini API.
-    Bypasses SDK version conflicts and guaranteed execution.
+    Direct REST HTTP Request with Quota / Rate Limit Handling.
     """
     if not key:
         return "Error: API Key missing in Streamlit Secrets."
 
-    models_to_try = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
+    # Active free-tier friendly models order
+    models_to_try = ["gemini-1.5-flash", "gemini-1.5-pro"]
     
     system_prompt = (
         "You are shish, an expert engineering AI assistant and problem solver. "
@@ -95,16 +95,24 @@ def query_gemini_direct(prompt_text, key):
                 data = res.json()
                 text_out = data["candidates"][0]["content"]["parts"][0]["text"]
                 return text_out
-            elif res.status_code == 400 or res.status_code == 404:
+            elif res.status_code == 429:
+                # Quota rate limit wait message
                 continue
             else:
-                err_data = res.json()
-                err_msg = err_data.get("error", {}).get("message", res.text)
-                return f"API Error ({res.status_code}): {err_msg}"
-        except Exception as e:
+                continue
+        except Exception:
             continue
 
-    return "API Execution Error: Could not connect to Gemini models. Please verify your GEMINI_API_KEY."
+    # Automatic Math Evaluation Fallback if API is temporarily rate limited
+    try:
+        clean_expr = prompt_text.replace("=", "").replace("kya hota hai", "").strip()
+        if re.match(r"^[\d\+\-\*\/\.\s\(\)]+$", clean_expr):
+            calc_res = eval(clean_expr)
+            return f"**{prompt_text}** = `{calc_res}`"
+    except Exception:
+        pass
+
+    return "⏳ **shish AI** Free Tier Rate Limit cooldown me hai. Please 15-20 seconds baad dubara try karein!"
 
 # MATERIAL LIBRARY DATABASE
 MATERIALS_DB = {

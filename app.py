@@ -495,7 +495,7 @@ with col_details:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# BOTTOM-LEFT FLOATING POP-UP CHATBOT WIDGET (LARGER & CLEAR)
+# BOTTOM-LEFT FLOATING POP-UP CHATBOT WIDGET (LARGER & BOLD HEADER)
 # ---------------------------------------------------------
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False
@@ -512,7 +512,7 @@ if st.session_state.chat_open:
         st.markdown('<div class="floating-chat-anchor"></div>', unsafe_allow_html=True)
         head_col1, head_col2 = st.columns([5, 1])
         with head_col1:
-            st.markdown("<h3 style='color:#0F172A; margin:0; font-size:18px;'>🤖 shish AI Assistant</h3>", unsafe_allow_html=True)
+            st.markdown("<h2 style='color:#0F172A; margin:0; font-size:22px; font-weight:800; letter-spacing:0.3px;'>🤖 shish AI Assistant</h2>", unsafe_allow_html=True)
         with head_col2:
             if st.button("─", help="Minimize Chat", key="minimize_chat_btn"):
                 st.session_state.chat_open = False

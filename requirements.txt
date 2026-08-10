@@ -8,4 +8,4 @@ trimesh
 plotly
 reportlab
 scipy
-google-generativeai
+google-genai

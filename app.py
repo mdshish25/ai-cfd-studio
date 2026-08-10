@@ -18,7 +18,7 @@ from reportlab.lib import colors
 # Streamlit Page Setup
 st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="collapsed")
 
-# CUSTOM WORKSTATION THEME & FLOATING POP-UP CHATBOT STYLING
+# CUSTOM WORKSTATION THEME & ISOLATED FLOATING CHATBOT STYLING
 st.markdown("""
 <style>
     .stApp {
@@ -55,6 +55,30 @@ st.markdown("""
         border-bottom: 1px solid #334155;
         padding-bottom: 6px;
     }
+
+    /* SPECIFIC FLOATING AI BUTTON (ISOLATED CSS) */
+    div.floating-ai-btn-container {
+        position: fixed !important;
+        bottom: 25px !important;
+        left: 25px !important;
+        z-index: 999999 !important;
+    }
+
+    div.floating-ai-btn-container button {
+        background-color: #EF4444 !important;
+        color: #FFFFFF !important;
+        border: none !important;
+        border-radius: 25px !important;
+        padding: 12px 24px !important;
+        font-weight: 700 !important;
+        font-size: 15px !important;
+        box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4) !important;
+        cursor: pointer !important;
+    }
+
+    div.floating-ai-btn-container button:hover {
+        background-color: #DC2626 !important;
+    }
     
     /* FLOATING BOTTOM-LEFT WHITE CHAT CONTAINER STYLING */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) {
@@ -86,22 +110,6 @@ st.markdown("""
         padding: 8px 12px !important;
         margin-bottom: 8px !important;
         border: 1px solid #E2E8F0 !important;
-    }
-
-    /* FLOATING BUTTON FIXED CSS AT BOTTOM LEFT */
-    div.element-container:has(button[kind="primary"]) {
-        position: fixed !important;
-        bottom: 25px !important;
-        left: 25px !important;
-        z-index: 999999 !important;
-    }
-    
-    div.element-container:has(button[kind="primary"]) button {
-        border-radius: 25px !important;
-        padding: 10px 22px !important;
-        font-weight: 700 !important;
-        font-size: 15px !important;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.4) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -458,6 +466,7 @@ with col_viewer:
     )
     st.plotly_chart(fig, use_container_width=True)
 
+# EXPORT EXECUTIVE REPORT CARD
 with col_details:
     st.markdown('<div class="ansys-card"><div class="card-title">📄 Export Executive Report</div>', unsafe_allow_html=True)
     pdf_data = generate_ansys_workbench_pdf(
@@ -483,15 +492,17 @@ with col_details:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# BOTTOM-LEFT FLOATING POP-UP CHATBOT WIDGET (WHITE THEME)
+# BOTTOM-LEFT FLOATING POP-UP CHATBOT WIDGET
 # ---------------------------------------------------------
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False
 
 if not st.session_state.chat_open:
-    if st.button("💬 shish AI", type="primary"):
+    st.markdown('<div class="floating-ai-btn-container">', unsafe_allow_html=True)
+    if st.button("💬 shish AI", key="floating_shish_btn"):
         st.session_state.chat_open = True
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 if st.session_state.chat_open:
     with st.container():
@@ -500,7 +511,7 @@ if st.session_state.chat_open:
         with head_col1:
             st.markdown("<h4 style='color:#0F172A; margin:0;'>🤖 shish AI Assistant</h4>", unsafe_allow_html=True)
         with head_col2:
-            if st.button("─", help="Minimize Chat"):
+            if st.button("─", help="Minimize Chat", key="minimize_chat_btn"):
                 st.session_state.chat_open = False
                 st.rerun()
 

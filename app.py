@@ -57,7 +57,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# SIDEBAR: AI ASSISTANT PANEL (GIVES RESPONSES LIKE ME)
+# SIDEBAR: AI ASSISTANT PANEL
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("🤖 ANSYS AI Engineering Assistant")
@@ -76,23 +76,20 @@ with st.sidebar:
 
     # User Chat Input
     if user_input := st.chat_input("Poochhein (e.g. Reynolds number kaise badhayein?)..."):
-        # Append User Message
         st.session_state.messages.append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.write(user_input)
 
-        # AI Intelligent Response Engine Logic
         query_lower = user_input.lower()
         if "reynolds" in query_lower or "re" in query_lower:
-            reply = "Reynolds Number ($Re = \\frac{\\rho V D_h}{\\mu}$) badhane ke liye aap **Inlet Velocity** badha sakte hain ya fluid density (jaise Air se Water) change kar sakte hain."
+            reply = "Reynolds Number ($Re = \\frac{\\rho V D_h}{\\mu}$) badhane ke liye aap **Inlet Velocity** badha sakte hain ya fluid density change kar sakte hain."
         elif "sat" in query_lower or "stl" in query_lower or "file" in query_lower:
-            reply = "Aap `.stl` aur `.sat` (ACIS ASCII) format upload kar sakte hain. Subspace mesh loader use exact 3D surface me convert kar dega."
+            reply = "Aap `.stl` aur `.sat` (ACIS ASCII) format upload kar sakte hain. System ise 3D mesh me automatically convert kar dega."
         elif "error" in query_lower or "problem" in query_lower:
-            reply = "Aap apna error traceback ya issue mujhe batayein, main aapko exact **bug-free python code** bana kar doonga."
+            reply = "Aap apna error traceback ya issue mujhe batayein, main aapko exact bug-free python code bana kar doonga."
         else:
-            reply = f"Aapne poocha: '{user_input}'. Main ANSYS Mechanical & Fluent solver matrices ($[K]\\{U\\} = \\{F\\}$) aur Navier-Stokes equations ke hisaab se aapke model ko solve kar sakta hoon."
+            reply = f"Aapne poocha: '{user_input}'. Main ANSYS Mechanical & Fluent solver matrices aur Navier-Stokes equations ke hisaab se aapke model ko solve kar sakta hoon."
 
-        # Append Assistant Reply
         st.session_state.messages.append({"role": "assistant", "content": reply})
         with st.chat_message("assistant"):
             st.write(reply)
@@ -122,6 +119,31 @@ col_viewer, col_details = st.columns([3.2, 1.2])
 mesh = None
 filename_str = "CAD_CFD_Model.stl"
 
+def parse_sat_file(sat_path):
+    raw_vertices = []
+    with open(sat_path, 'r', errors='ignore') as f:
+        content = f.read()
+        pattern = r'([-+]?\d*\.\d+|\d+)\s+([-+]?\d*\.\d+|\d+)\s+([-+]?\d*\.\d+|\d+)'
+        matches = re.findall(pattern, content)
+        for m in matches:
+            try:
+                v = [float(m[0]), float(m[1]), float(m[2])]
+                if any(abs(c) > 0.0001 for c in v) and all(abs(c) < 2000.0 for c in v):
+                    raw_vertices.append(v)
+            except ValueError:
+                continue
+
+    if len(raw_vertices) < 12:
+        return None
+
+    vertices = np.unique(np.array(raw_vertices), axis=0)
+    try:
+        cloud = trimesh.PointCloud(vertices)
+        mesh = trimesh.convex.convex_hull(cloud)
+        return mesh
+    except Exception:
+        return None
+
 if uploaded_file is not None:
     filename_str = uploaded_file.name
     ext = filename_str.split(".")[-1].lower()
@@ -129,11 +151,14 @@ if uploaded_file is not None:
     with open(temp_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
     try:
-        mesh = trimesh.load(temp_path, force='mesh')
-        if isinstance(mesh, trimesh.Scene):
-            geometries = list(mesh.geometry.values())
-            if len(geometries) > 0:
-                mesh = trimesh.util.concatenate(geometries)
+        if ext == "stl":
+            mesh = trimesh.load(temp_path, force='mesh')
+            if isinstance(mesh, trimesh.Scene):
+                geometries = list(mesh.geometry.values())
+                if len(geometries) > 0:
+                    mesh = trimesh.util.concatenate(geometries)
+        elif ext == "sat":
+            mesh = parse_sat_file(temp_path)
     except Exception:
         mesh = None
 
@@ -153,7 +178,6 @@ with col_details:
     density_val = 1.225 if "Air" in fluid_type else (998.0 if "Water" in fluid_type else 870.0)
     viscosity_val = 1.81e-5 if "Air" in fluid_type else 1.005e-3
 
-    # Fast CFD Vectorized Calculations
     dh = 2 * pipe_radius
     reynolds_no = (density_val * inlet_velocity * dh) / viscosity_val
     regime = "Turbulent (k-ε)" if reynolds_no > 4000 else "Laminar"

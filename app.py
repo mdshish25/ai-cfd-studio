@@ -36,13 +36,6 @@ st.markdown("""
         border-bottom: 2px solid #FFB800;
         margin-bottom: 10px;
     }
-    .tree-box {
-        background-color: #FFFFFF;
-        border: 1px solid #7F9DB9;
-        padding: 8px;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-size: 12px;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -193,34 +186,10 @@ with t_col7:
 
 st.markdown("---")
 
-# MAIN ANSYS 3-PANE LAYOUT
-col_tree, col_viewer, col_details = st.columns([1, 2.5, 1])
+# 2-PANE LAYOUT (REMOVED OUTLINE TREE FOR MAXIMUM 3D GRAPHICS SPACE)
+col_viewer, col_details = st.columns([3, 1])
 
-# PANE 1: ANSYS OUTLINE TREE VIEW
-with col_tree:
-    st.subheader("📋 Project Outline Tree")
-    st.markdown("""
-    <div class="tree-box">
-        <b>Project</b><br/>
-        └── 📁 <b>Model (A4)</b><br/>
-        &nbsp;&nbsp;&nbsp;&nbsp;├── 📐 Geometry<br/>
-        &nbsp;&nbsp;&nbsp;&nbsp;├── 🌐 Coordinate Systems<br/>
-        &nbsp;&nbsp;&nbsp;&nbsp;├── 🕸️ Mesh<br/>
-        &nbsp;&nbsp;&nbsp;&nbsp;└── ⚡ <b>Static Structural (A5)</b><br/>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── ⚙️ Analysis Settings<br/>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── 🔻 Fixed Support<br/>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── ⬇️ Force / Pressure Load<br/>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── 📊 <b>Solution (A6)</b><br/>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── 📈 Equivalent Stress<br/>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── 📐 Total Deformation
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("<br/>", unsafe_allow_html=True)
-    st.subheader("📦 CAD Geometry Input")
-    uploaded_file = st.file_uploader("Import CAD File (.stl, .sat)", type=["stl", "sat"])
-
-# PANE 2: MAIN 3D ANSYS GRAPHICS VIEWER
+# PANE 1: MAIN 3D ANSYS GRAPHICS VIEWER
 with col_viewer:
     st.subheader("🖥️ ANSYS 3D View Engine")
     
@@ -228,6 +197,9 @@ with col_viewer:
     
     mesh = None
     filename_str = "STAVE_Simul.stl"
+    
+    uploaded_file = st.file_uploader("📦 Import CAD File (.stl, .sat)", type=["stl", "sat"])
+
     if uploaded_file is not None:
         filename_str = uploaded_file.name
         ext = filename_str.split(".")[-1].lower()
@@ -308,13 +280,13 @@ with col_viewer:
     fig.update_layout(
         scene=dict(
             xaxis_title='X (mm)', yaxis_title='Y (mm)', zaxis_title='Z (mm)',
-            bgcolor="#7F9DB9"  # ANSYS Workbench Canvas Blue Background
+            bgcolor="#7F9DB9"
         ),
         margin=dict(l=0, r=0, b=0, t=0)
     )
     st.plotly_chart(fig, use_container_width=True)
 
-# PANE 3: DETAILS OF SELECTION & LIGHTING / LOADS & PDF DOWNLOAD
+# PANE 2: DETAILS OF SELECTION & LIGHTING / LOADS & PDF DOWNLOAD
 with col_details:
     st.subheader("🔍 Details of Selection")
     st.write(f"**Mesh Vertices:** {len(verts):,}")
@@ -328,7 +300,6 @@ with col_details:
     st.markdown("---")
     st.subheader("📄 Client Deliverable")
     
-    # Generate PDF buffer for download button
     pdf_data = generate_ansys_workbench_pdf(
         filename=filename_str,
         project_name="ATLAS Stave Simulation",

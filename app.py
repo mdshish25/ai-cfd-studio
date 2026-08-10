@@ -134,7 +134,7 @@ def query_shish_ai_permanent(prompt_text):
         pass
 
     sys_prompt = (
-        "You are shish, an advanced, highly intelligent AI Assistant powered by LLM. "
+        "You are Shish, an advanced, highly intelligent AI Assistant powered by LLM. "
         "Your goal is to be friendly, grounded, exceptionally helpful, and accurate. "
         "You must answer ALL user questions across any domain: Science, Math, Engineering (ANSYS, CFD, FEA), "
         "Python Coding, Logic, and General Knowledge. Communicate naturally in Hinglish or English."
@@ -517,7 +517,7 @@ if st.session_state.chat_open:
 
         if "messages" not in st.session_state:
             st.session_state.messages = [
-                {"role": "assistant", "content": "Namaste! Main **shish** hoon. Aap koi bhi question pooch sakte hain!"}
+                {"role": "assistant", "content": "Hello! I am **Shish**. You can ask any question!"}
             ]
 
         chat_container = st.container(height=320)

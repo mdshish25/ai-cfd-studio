@@ -18,7 +18,7 @@ from reportlab.lib import colors
 # Streamlit Page Setup
 st.set_page_config(page_title="ANSYS Multi-Physics & shish AI Studio", layout="wide", initial_sidebar_state="collapsed")
 
-# CUSTOM WORKSTATION THEME & FLOATING POP-UP CHATBOT STYLING
+# CUSTOM WORKSTATION THEME & CLEAN WHITE FLOATING POP-UP CHATBOT STYLING
 st.markdown("""
 <style>
     .stApp {
@@ -56,19 +56,44 @@ st.markdown("""
         padding-bottom: 6px;
     }
     
-    /* FLOATING BOTTOM-LEFT AI CONTAINER */
+    /* FLOATING BOTTOM-LEFT WHITE CHAT CONTAINER STYLING */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) {
         position: fixed;
-        bottom: 20px;
-        left: 20px;
+        bottom: 25px;
+        left: 25px;
         z-index: 99999;
         width: 380px;
-        max-height: 520px;
-        background-color: #1E293B;
-        border: 2px solid #0284C7;
+        background-color: #FFFFFF !important;
+        border: 1px solid #CBD5E1;
         border-radius: 12px;
-        padding: 12px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        padding: 14px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+        color: #0F172A !important;
+    }
+
+    /* WHITE CHATBOX INNER TEXT & BOLD STYLING */
+    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) p,
+    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) span,
+    div[data-testid="stVerticalBlock"] > div:has(div.floating-chat-anchor) div {
+        color: #0F172A !important;
+        font-weight: 600 !important;
+    }
+
+    /* Chat Messages Backgrounds */
+    div[data-testid="stChatMessage"] {
+        background-color: #F1F5F9 !important;
+        border-radius: 8px !important;
+        padding: 8px 12px !important;
+        margin-bottom: 8px !important;
+        border: 1px solid #E2E8F0 !important;
+    }
+
+    /* Floating Button Custom Position */
+    div.floating-chat-button {
+        position: fixed;
+        bottom: 25px;
+        left: 25px;
+        z-index: 999999;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -450,23 +475,10 @@ with col_details:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# BOTTOM-LEFT FLOATING POP-UP CHATBOT WIDGET
+# BOTTOM-LEFT FLOATING POP-UP CHATBOT WIDGET (WHITE THEME)
 # ---------------------------------------------------------
 if "chat_open" not in st.session_state:
     st.session_state.chat_open = False
-
-# Floating Launcher Button at Bottom-Left Corner
-st.markdown("""
-<style>
-    div.floating-chat-button {
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        z-index: 999999;
-    }
-</style>
-<div class="floating-chat-button"></div>
-""", unsafe_allow_html=True)
 
 btn_col1, btn_col2 = st.columns([1, 20])
 with btn_col1:
@@ -475,13 +487,12 @@ with btn_col1:
             st.session_state.chat_open = True
             st.rerun()
 
-# Floating Pop-up Window Display
 if st.session_state.chat_open:
     with st.container():
         st.markdown('<div class="floating-chat-anchor"></div>', unsafe_allow_html=True)
         head_col1, head_col2 = st.columns([4, 1])
         with head_col1:
-            st.markdown("🤖 **shish AI Assistant**")
+            st.markdown("<h4 style='color:#0F172A; margin:0;'>🤖 shish AI Assistant</h4>", unsafe_allow_html=True)
         with head_col2:
             if st.button("─", help="Minimize Chat"):
                 st.session_state.chat_open = False
@@ -489,10 +500,10 @@ if st.session_state.chat_open:
 
         if "messages" not in st.session_state:
             st.session_state.messages = [
-                {"role": "assistant", "content": "Namaste! Main **shish** hoon. Koi bhi sawaal poochhein!"}
+                {"role": "assistant", "content": "Namaste! Main **shish** hoon. Aap koi bhi question pooch sakte hain!"}
             ]
 
-        chat_container = st.container(height=300)
+        chat_container = st.container(height=320)
         with chat_container:
             for msg in st.session_state.messages:
                 with st.chat_message(msg["role"]):
